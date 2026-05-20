@@ -1,8 +1,3 @@
-// ============================================================
-// C18 Task Manager — Frontend Script
-// IMPORTANT: Replace API_BASE with your deployed Apps Script URL
-// ============================================================
-
 const API_BASE = "https://script.google.com/macros/s/AKfycbxy-HT-J3pU66MHdTzGmBqVIuECtr7sWLscMArFm8STQh3QGiLzjV9ohMxnu8FDLAJW/exec"; // ← paste your /exec URL here
 
 let currentUser = null;
