@@ -1,4 +1,9 @@
-const API_BASE = "https://script.google.com/macros/s/AKfycbxy-HT-J3pU66MHdTzGmBqVIuECtr7sWLscMArFm8STQh3QGiLzjV9ohMxnu8FDLAJW/exec"; // ← paste your /exec URL here
+// ============================================================
+// C18 Task Manager — Frontend Script (FIXED for CORS)
+// IMPORTANT: Replace API_BASE with your deployed Apps Script URL
+// ============================================================
+
+const API_BASE = "https://script.google.com/macros/s/AKfycbxAKacpY0TaVAbGxtoPVk36o168wcrNToLKdQxsrHf3MQBW4Mi8gV1j40UdaClUjhfj/exec"; // <-- PASTE YOUR /exec URL HERE
 
 let currentUser = null;
 let allTasks    = [];
@@ -11,6 +16,7 @@ let config      = {};
 
 function toast(msg, type = "") {
     const el = document.getElementById("toast");
+    if (!el) return;
     el.textContent = msg;
     el.className = "show" + (type ? " " + type : "");
     clearTimeout(el._timer);
@@ -18,9 +24,11 @@ function toast(msg, type = "") {
 }
 
 function showView(view) {
-    document.getElementById("viewTasks").style.display  = view === "tasks"  ? "block" : "none";
-    document.getElementById("viewCreate").style.display = view === "create" ? "block" : "none";
-    // Set active nav item by matching data-view attribute
+    // FIXED: check if elements exist before accessing .style
+    const tasksDiv = document.getElementById("viewTasks");
+    const createDiv = document.getElementById("viewCreate");
+    if (tasksDiv) tasksDiv.style.display = view === "tasks" ? "block" : "none";
+    if (createDiv) createDiv.style.display = view === "create" ? "block" : "none";
     document.querySelectorAll(".nav-item").forEach(b => {
         b.classList.toggle("active", b.dataset.view === view);
     });
@@ -38,29 +46,32 @@ function getStatusClass(status) {
 }
 
 function closeModal() {
-    document.getElementById("modal").style.display = "none";
+    const modal = document.getElementById("modal");
+    if (modal) modal.style.display = "none";
 }
 
 function openCreateModal() {
-    // Clear fields each time
     ["taskTitle","taskDesc","taskDueDate"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = "";
     });
-    document.getElementById("createModal").style.display = "flex";
+    const modal = document.getElementById("createModal");
+    if (modal) modal.style.display = "flex";
 }
 
 function closeCreateModal() {
-    document.getElementById("createModal").style.display = "none";
+    const modal = document.getElementById("createModal");
+    if (modal) modal.style.display = "none";
 }
 
 function setLoading(show) {
     const board = document.getElementById("taskBoard");
+    if (!board) return;
     if (show) board.innerHTML = `<div class="loading"><div class="spinner"></div><br>Loading tasks…</div>`;
 }
 
 // ============================================================
-// API CALLS
+// API CALLS — FIXED: URL-encoded POST (no CORS preflight)
 // ============================================================
 
 async function apiFetch(params) {
@@ -71,10 +82,12 @@ async function apiFetch(params) {
 }
 
 async function apiPost(body) {
+    // Use URL-encoded format to avoid CORS preflight
+    const formBody = new URLSearchParams(body).toString();
     const res = await fetch(API_BASE, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formBody
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
@@ -84,14 +97,11 @@ async function apiPost(body) {
 // DATA LOADERS
 // ============================================================
 
-// FIX: loadEmployees, loadConfig, populateFiltersAndForm are now
-// chained in init() to prevent race conditions.
-
 async function loadEmployees() {
     const data = await apiFetch({ action: "getEmployees" });
-    // FIX: Apps Script wraps as { employees: [...] }
     employees = data.employees || [];
     const userSelect = document.getElementById("userSelect");
+    if (!userSelect) return;
     userSelect.innerHTML = '<option value="">-- Select your name --</option>';
     employees.forEach(emp => {
         const opt = document.createElement("option");
@@ -105,12 +115,11 @@ async function loadTasks() {
     setLoading(true);
     try {
         const data = await apiFetch({ action: "getTasks" });
-        // FIX: Apps Script wraps as { tasks: [...] }
         allTasks = data.tasks || [];
         renderTaskBoard();
     } catch (err) {
-        document.getElementById("taskBoard").innerHTML =
-            `<div class="empty-state"><div class="empty-icon">⚠️</div><p>Could not load tasks. Check your API_BASE URL.</p></div>`;
+        const board = document.getElementById("taskBoard");
+        if (board) board.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>Could not load tasks. Check your API_BASE URL.</p></div>`;
     }
 }
 
@@ -123,8 +132,6 @@ async function loadConfig() {
     }
 }
 
-// Populates filter dropdowns AND the create-task form dropdowns.
-// FIX: Called after loadEmployees() so employees array is ready.
 async function populateFiltersAndForm() {
     // Properties
     const propData = await apiFetch({ action: "getProperties" });
@@ -132,11 +139,11 @@ async function populateFiltersAndForm() {
 
     const filterProp = document.getElementById("filterProperty");
     const taskProp   = document.getElementById("taskProperty");
-    filterProp.innerHTML = '<option value="">All Properties</option>';
-    taskProp.innerHTML   = "";
+    if (filterProp) filterProp.innerHTML = '<option value="">All Properties</option>';
+    if (taskProp) taskProp.innerHTML = "";
     properties.forEach(p => {
-        filterProp.innerHTML += `<option value="${p}">${p}</option>`;
-        taskProp.innerHTML   += `<option value="${p}">${p}</option>`;
+        if (filterProp) filterProp.innerHTML += `<option value="${p}">${p}</option>`;
+        if (taskProp) taskProp.innerHTML += `<option value="${p}">${p}</option>`;
     });
 
     // Departments
@@ -145,19 +152,21 @@ async function populateFiltersAndForm() {
 
     const filterDept = document.getElementById("filterDept");
     const taskDept   = document.getElementById("taskDept");
-    filterDept.innerHTML = '<option value="">All Departments</option>';
-    taskDept.innerHTML   = "";
+    if (filterDept) filterDept.innerHTML = '<option value="">All Departments</option>';
+    if (taskDept) taskDept.innerHTML = "";
     depts.forEach(d => {
-        filterDept.innerHTML += `<option value="${d}">${d}</option>`;
-        taskDept.innerHTML   += `<option value="${d}">${d}</option>`;
+        if (filterDept) filterDept.innerHTML += `<option value="${d}">${d}</option>`;
+        if (taskDept) taskDept.innerHTML += `<option value="${d}">${d}</option>`;
     });
 
-    // Assignees — FIX: employees already loaded at this point
+    // Assignees
     const assigneeSelect = document.getElementById("taskAssignee");
-    assigneeSelect.innerHTML = "";
-    employees.forEach(emp => {
-        assigneeSelect.innerHTML += `<option value="${emp.name}">${emp.name} (${emp.department})</option>`;
-    });
+    if (assigneeSelect) {
+        assigneeSelect.innerHTML = "";
+        employees.forEach(emp => {
+            assigneeSelect.innerHTML += `<option value="${emp.name}">${emp.name} (${emp.department})</option>`;
+        });
+    }
 }
 
 // ============================================================
@@ -243,11 +252,13 @@ function openEditModal(taskId) {
     const task = allTasks.find(t => String(t.id) === String(taskId));
     if (!task) return;
 
+    const modalBody = document.getElementById("modalBody");
+    if (!modalBody) return;
     document.getElementById("modalTitle").textContent = "Edit Task";
-    document.getElementById("modalBody").innerHTML = `
+    modalBody.innerHTML = `
         <div class="form-group">
             <label>Title</label>
-            <input type="text" id="editTitle" value="${task.title || ""}">
+            <input type="text" id="editTitle" value="${escapeHtml(task.title || "")}">
         </div>
         <div class="form-group">
             <label>Due Date</label>
@@ -255,40 +266,51 @@ function openEditModal(taskId) {
         </div>
         <div class="form-group">
             <label>Description</label>
-            <textarea id="editDesc" rows="3">${task.description || ""}</textarea>
+            <textarea id="editDesc" rows="3">${escapeHtml(task.description || "")}</textarea>
         </div>
     `;
-    document.getElementById("modalSaveBtn").onclick = () => {
-        saveEditTask(taskId, {
-            title:       document.getElementById("editTitle").value,
-            dueDate:     document.getElementById("editDue").value,
-            description: document.getElementById("editDesc").value,
-        });
-    };
-    document.getElementById("modal").style.display = "flex";
+    const saveBtn = document.getElementById("modalSaveBtn");
+    if (saveBtn) {
+        saveBtn.onclick = () => {
+            saveEditTask(taskId, {
+                title:       document.getElementById("editTitle").value,
+                dueDate:     document.getElementById("editDue").value,
+                description: document.getElementById("editDesc").value,
+            });
+        };
+    }
+    const modal = document.getElementById("modal");
+    if (modal) modal.style.display = "flex";
 }
 
 function openCommentModal(taskId) {
     const task = allTasks.find(t => String(t.id) === String(taskId));
+    const modalBody = document.getElementById("modalBody");
+    if (!modalBody) return;
     document.getElementById("modalTitle").textContent = "Add Comment";
-
     const existing = (task?.comments || "").trim();
-    document.getElementById("modalBody").innerHTML = `
-        ${existing ? `<div class="form-group"><label>Previous Comments</label><div class="cell-mini" style="max-width:100%;white-space:pre-wrap;background:var(--surface-2);padding:10px;border-radius:6px;border:1px solid var(--border)">${existing}</div></div>` : ""}
+    modalBody.innerHTML = `
+        ${existing ? `<div class="form-group"><label>Previous Comments</label><div class="cell-mini" style="max-width:100%;white-space:pre-wrap;background:var(--surface-2);padding:10px;border-radius:6px;border:1px solid var(--border)">${escapeHtml(existing)}</div></div>` : ""}
         <div class="form-group">
             <label>New Comment</label>
             <textarea id="commentText" rows="3" placeholder="Write your comment…"></textarea>
         </div>
     `;
-    document.getElementById("modalSaveBtn").onclick = () => {
-        addComment(taskId, document.getElementById("commentText").value);
-    };
-    document.getElementById("modal").style.display = "flex";
+    const saveBtn = document.getElementById("modalSaveBtn");
+    if (saveBtn) {
+        saveBtn.onclick = () => {
+            addComment(taskId, document.getElementById("commentText").value);
+        };
+    }
+    const modal = document.getElementById("modal");
+    if (modal) modal.style.display = "flex";
 }
 
 function openAttachmentModal(taskId) {
+    const modalBody = document.getElementById("modalBody");
+    if (!modalBody) return;
     document.getElementById("modalTitle").textContent = "Add Attachment";
-    document.getElementById("modalBody").innerHTML = `
+    modalBody.innerHTML = `
         <div class="form-group">
             <label>File URL</label>
             <input type="url" id="attachUrl" placeholder="https://drive.google.com/…">
@@ -298,13 +320,27 @@ function openAttachmentModal(taskId) {
             <input type="text" id="attachName" placeholder="e.g. Invoice_March.pdf">
         </div>
     `;
-    document.getElementById("modalSaveBtn").onclick = () => {
-        addAttachment(taskId,
-            document.getElementById("attachUrl").value,
-            document.getElementById("attachName").value
-        );
-    };
-    document.getElementById("modal").style.display = "flex";
+    const saveBtn = document.getElementById("modalSaveBtn");
+    if (saveBtn) {
+        saveBtn.onclick = () => {
+            addAttachment(taskId,
+                document.getElementById("attachUrl").value,
+                document.getElementById("attachName").value
+            );
+        };
+    }
+    const modal = document.getElementById("modal");
+    if (modal) modal.style.display = "flex";
+}
+
+function escapeHtml(str) {
+    if (!str) return "";
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === "&") return "&amp;";
+        if (m === "<") return "&lt;";
+        if (m === ">") return "&gt;";
+        return m;
+    });
 }
 
 // ============================================================
@@ -314,110 +350,67 @@ function openAttachmentModal(taskId) {
 function renderTaskBoard() {
     let filtered = [...allTasks];
 
-    // Filters
-    const propFilter   = document.getElementById("filterProperty").value;
-    const deptFilter   = document.getElementById("filterDept").value;
-    const statusFilter = document.getElementById("filterStatus").value;
-    if (propFilter)   filtered = filtered.filter(t => t.property   === propFilter);
-    if (deptFilter)   filtered = filtered.filter(t => t.department  === deptFilter);
-    if (statusFilter) filtered = filtered.filter(t => t.status      === statusFilter);
+    const propFilter = document.getElementById("filterProperty");
+    const deptFilter = document.getElementById("filterDept");
+    const statusFilter = document.getElementById("filterStatus");
+    if (propFilter && propFilter.value) filtered = filtered.filter(t => t.property === propFilter.value);
+    if (deptFilter && deptFilter.value) filtered = filtered.filter(t => t.department === deptFilter.value);
+    if (statusFilter && statusFilter.value) filtered = filtered.filter(t => t.status === statusFilter.value);
 
-    // Role-based scoping
     if (currentUser.role === "employee") {
         filtered = filtered.filter(t => t.assignedTo === currentUser.name);
     } else if (currentUser.role === "head") {
         filtered = filtered.filter(t => t.department === currentUser.department);
     }
-    // admin sees everything
+
+    const board = document.getElementById("taskBoard");
+    if (!board) return;
 
     if (filtered.length === 0) {
-        document.getElementById("taskBoard").innerHTML = `
-            <div class="empty-state">
-                <div class="empty-icon">📭</div>
-                <p>No tasks match the current filters.</p>
-            </div>`;
+        board.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p>No tasks match the current filters.</p></div>`;
         return;
     }
 
-    // FIX: correct table header markup (was corrupted with '胺<' garbage)
-    let html = `
-        <div class="table-wrap">
-        <table>
-            <thead><tr>
-                <th>Title</th>
-                <th>Property</th>
-                <th>Dept</th>
-                <th>Assigned To</th>
-                <th>Status</th>
-                <th>Due Date</th>
-                <th>Actions</th>
-                <th>Notes</th>
-            </tr></thead>
-            <tbody>`;
+    let html = `<div class="table-wrap"><table><thead><tr>
+        <th>Title</th><th>Property</th><th>Dept</th><th>Assigned To</th><th>Status</th><th>Due Date</th>
+        <th>Actions</th><th>Notes</th>
+    </tr></thead><tbody>`;
 
     filtered.forEach(task => {
         const tid = task.id;
-        const canChangeStatus =
-            currentUser.role !== "employee" ||
-            task.assignedTo === currentUser.name;
-
-        const isOverdue = task.dueDate && task.status !== "Done" &&
-                          new Date(task.dueDate) < new Date(new Date().toDateString());
-
+        const canChangeStatus = (currentUser.role !== "employee" || task.assignedTo === currentUser.name);
+        const isOverdue = task.dueDate && task.status !== "Done" && new Date(task.dueDate) < new Date(new Date().toDateString());
         const dueCellStyle = isOverdue ? ' style="color:var(--red)"' : "";
 
-        // Status dropdown — always visible, disabled for non-owners (employees)
-        const statusSelect = `
-            <select class="status-select"
-                onchange="updateTaskStatus('${tid}', this.value)"
-                ${canChangeStatus ? "" : "disabled"}>
-                ${["To Do","In Progress","Done","Pending","Blocked"].map(s =>
-                    `<option${task.status === s ? " selected" : ""}>${s}</option>`
-                ).join("")}
-            </select>`;
+        const statusSelect = `<select class="status-select" onchange="updateTaskStatus('${tid}', this.value)" ${canChangeStatus ? "" : "disabled"}>
+            ${["To Do","In Progress","Done","Pending","Blocked"].map(s => `<option${task.status === s ? " selected" : ""}>${s}</option>`).join("")}
+        </select>`;
 
-        // Action buttons based on role
         let actions = "";
         if (currentUser.role === "head" || currentUser.role === "admin") {
-            actions = `
-                <button class="btn btn-sm btn-ghost" onclick="openEditModal('${tid}')">✏️ Edit</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteTask('${tid}')">🗑️</button>`;
-        } else if (currentUser.role === "employee" &&
-                   task.assignedTo === currentUser.name &&
-                   task.status !== "Done") {
+            actions = `<button class="btn btn-sm btn-ghost" onclick="openEditModal('${tid}')">✏️ Edit</button>
+                       <button class="btn btn-sm btn-danger" onclick="deleteTask('${tid}')">🗑️</button>`;
+        } else if (currentUser.role === "employee" && task.assignedTo === currentUser.name && task.status !== "Done") {
             actions = `<button class="btn btn-sm btn-primary" onclick="updateTaskStatus('${tid}', 'Done')">✅ Done</button>`;
         }
 
-        // Comment/attachment snippets
-        const commentSnippet    = (task.comments    || "").split("\n").slice(-1)[0] || "";
+        const commentSnippet = (task.comments || "").split("\n").slice(-1)[0] || "";
         const attachmentSnippet = (task.attachments || "").split(";").slice(-2,-1)[0] || "";
 
-        html += `
-            <tr>
-                <td><strong>${task.title}</strong></td>
-                <td>${task.property || "—"}</td>
-                <td>${task.department || "—"}</td>
-                <td>${task.assignedTo || "—"}</td>
-                <td>${statusSelect}</td>
-                <td${dueCellStyle}>${task.dueDate || "—"}</td>
-                <td>
-                    <div class="action-cell">
-                        ${actions}
-                        <button class="btn btn-sm btn-ghost" onclick="openCommentModal('${tid}')">💬</button>
-                        <button class="btn btn-sm btn-ghost" onclick="openAttachmentModal('${tid}')">📎</button>
-                    </div>
-                </td>
-                <td>
-                    <div class="cell-mini">
-                        ${commentSnippet ? `<span title="${task.comments}">💬 ${commentSnippet.slice(0,60)}${commentSnippet.length > 60 ? "…" : ""}</span>` : ""}
-                        ${attachmentSnippet ? `<br>📎 ${attachmentSnippet.trim().slice(0,50)}` : ""}
-                    </div>
-                </td>
-            </tr>`;
+        html += `<tr>
+            <td><strong>${escapeHtml(task.title)}</strong></td>
+            <td>${escapeHtml(task.property || "—")}</td>
+            <td>${escapeHtml(task.department || "—")}</td>
+            <td>${escapeHtml(task.assignedTo || "—")}</td>
+            <td>${statusSelect}</td>
+            <td${dueCellStyle}>${task.dueDate || "—"}</td>
+            <td><div class="action-cell">${actions}<button class="btn btn-sm btn-ghost" onclick="openCommentModal('${tid}')">💬</button><button class="btn btn-sm btn-ghost" onclick="openAttachmentModal('${tid}')">📎</button></div></td>
+            <td><div class="cell-mini">${commentSnippet ? `<span title="${escapeHtml(task.comments)}">💬 ${escapeHtml(commentSnippet.slice(0,60))}${commentSnippet.length > 60 ? "…" : ""}</span>` : ""}${attachmentSnippet ? `<br>📎 ${escapeHtml(attachmentSnippet.trim().slice(0,50))}` : ""}</div></td>
+        </tr>`;
     });
 
     html += `</tbody></table></div>`;
-    document.getElementById("taskBoard").innerHTML = html;
+    board.innerHTML = html;
 }
 
 // ============================================================
@@ -426,24 +419,19 @@ function renderTaskBoard() {
 
 async function sendEodWhatsApp() {
     const today = new Date().toISOString().slice(0, 10);
-    const completedToday = allTasks.filter(t =>
-        t.status === "Done" && t.completedAt && t.completedAt.slice(0, 10) === today
-    );
+    const completedToday = allTasks.filter(t => t.status === "Done" && t.completedAt && t.completedAt.slice(0, 10) === today);
     const pending = allTasks.filter(t => t.status !== "Done");
 
     let report = `📊 C18 End of Day Report — ${today}\n\n`;
     report += `✅ Completed Today (${completedToday.length}):\n`;
     completedToday.forEach(t => { report += `  • ${t.title} (${t.assignedTo})\n`; });
     report += `\n⏳ Pending (${pending.length}):\n`;
-    pending.forEach(t => {
-        report += `  • ${t.title} → ${t.assignedTo} (Due: ${t.dueDate || "no deadline"}) [${t.status}]\n`;
-    });
+    pending.forEach(t => { report += `  • ${t.title} → ${t.assignedTo} (Due: ${t.dueDate || "no deadline"}) [${t.status}]\n`; });
 
     try {
         await navigator.clipboard.writeText(report);
         toast("EOD report copied to clipboard. Paste it into WhatsApp.", "success");
     } catch {
-        // Fallback for browsers that block clipboard
         prompt("Copy this EOD report:", report);
     }
 }
@@ -462,14 +450,13 @@ document.getElementById("loginBtn").onclick = async () => {
     document.getElementById("loginSection").style.display = "none";
     document.getElementById("appSection").style.display  = "flex";
 
-    // Sidebar user chip
     document.getElementById("userName").textContent  = currentUser.name;
     document.getElementById("userRole").textContent  = currentUser.role;
-    document.getElementById("userAvatar").textContent = currentUser.name.charAt(0).toUpperCase();
+    const avatar = document.getElementById("userAvatar");
+    if (avatar) avatar.textContent = currentUser.name.charAt(0).toUpperCase();
 
-    // Show "+ New Task" button in header for heads/admins
     const newTaskBtn = document.getElementById("newTaskBtn");
-    newTaskBtn.style.display = (currentUser.role === "head" || currentUser.role === "admin") ? "inline-flex" : "none";
+    if (newTaskBtn) newTaskBtn.style.display = (currentUser.role === "head" || currentUser.role === "admin") ? "inline-flex" : "none";
 
     showView("tasks");
     await loadTasks();
@@ -502,39 +489,42 @@ document.getElementById("createTaskBtn").onclick = async () => {
         status:      "To Do"
     };
 
-    await createTask(newTask); // modal closed + fields cleared inside createTask/closeCreateModal
+    await createTask(newTask);
 };
 
 // ============================================================
 // FILTER LISTENERS
 // ============================================================
 
-document.getElementById("filterProperty").onchange = renderTaskBoard;
-document.getElementById("filterDept").onchange     = renderTaskBoard;
-document.getElementById("filterStatus").onchange   = renderTaskBoard;
-document.getElementById("refreshBtn").onclick       = loadTasks;
-document.getElementById("sendEodWhatsAppBtn").onclick = sendEodWhatsApp;
-document.getElementById("newTaskBtn").onclick       = openCreateModal;
+const filterProp = document.getElementById("filterProperty");
+const filterDept = document.getElementById("filterDept");
+const filterStatus = document.getElementById("filterStatus");
+const refreshBtn = document.getElementById("refreshBtn");
+const eodBtn = document.getElementById("sendEodWhatsAppBtn");
+const newTaskBtn = document.getElementById("newTaskBtn");
 
-// Close modals when clicking the dark overlay
-document.getElementById("modal").onclick = (e) => {
-    if (e.target === document.getElementById("modal")) closeModal();
-};
-document.getElementById("createModal").onclick = (e) => {
-    if (e.target === document.getElementById("createModal")) closeCreateModal();
-};
+if (filterProp) filterProp.onchange = renderTaskBoard;
+if (filterDept) filterDept.onchange = renderTaskBoard;
+if (filterStatus) filterStatus.onchange = renderTaskBoard;
+if (refreshBtn) refreshBtn.onclick = loadTasks;
+if (eodBtn) eodBtn.onclick = sendEodWhatsApp;
+if (newTaskBtn) newTaskBtn.onclick = openCreateModal;
 
-// Nav — active state is handled inside showView(), so no extra listener needed here.
+// Close modals when clicking overlay
+const modalOverlay = document.getElementById("modal");
+const createModalOverlay = document.getElementById("createModal");
+if (modalOverlay) modalOverlay.onclick = (e) => { if (e.target === modalOverlay) closeModal(); };
+if (createModalOverlay) createModalOverlay.onclick = (e) => { if (e.target === createModalOverlay) closeCreateModal(); };
 
 // ============================================================
-// FIX: Sequential init — no race conditions
+// INITIALISATION
 // ============================================================
 
 async function init() {
     try {
-        await loadEmployees();          // 1. employees first
-        await loadConfig();             // 2. config
-        await populateFiltersAndForm(); // 3. dropdowns (needs employees ready)
+        await loadEmployees();
+        await loadConfig();
+        await populateFiltersAndForm();
     } catch (e) {
         console.error("Init failed:", e);
         toast("Could not connect to backend. Check API_BASE in script.js.", "error");
