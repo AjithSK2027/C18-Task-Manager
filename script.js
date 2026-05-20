@@ -46,6 +46,19 @@ function closeModal() {
     document.getElementById("modal").style.display = "none";
 }
 
+function openCreateModal() {
+    // Clear fields each time
+    ["taskTitle","taskDesc","taskDueDate"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
+    document.getElementById("createModal").style.display = "flex";
+}
+
+function closeCreateModal() {
+    document.getElementById("createModal").style.display = "none";
+}
+
 function setLoading(show) {
     const board = document.getElementById("taskBoard");
     if (show) board.innerHTML = `<div class="loading"><div class="spinner"></div><br>Loading tasks…</div>`;
@@ -161,7 +174,7 @@ async function createTask(taskObj) {
         const result = await apiPost({ action: "addTask", ...taskObj });
         if (result.success) {
             toast("Task created! WhatsApp notification sent.", "success");
-            showView("tasks");
+            closeCreateModal();
             await loadTasks();
         } else {
             toast("Error: " + (result.error || "Unknown error"), "error");
@@ -459,9 +472,9 @@ document.getElementById("loginBtn").onclick = async () => {
     document.getElementById("userRole").textContent  = currentUser.role;
     document.getElementById("userAvatar").textContent = currentUser.name.charAt(0).toUpperCase();
 
-    // Show create-task nav item only for heads/admins
-    const navCreate = document.getElementById("navCreate");
-    navCreate.style.display = (currentUser.role === "head" || currentUser.role === "admin") ? "block" : "none";
+    // Show "+ New Task" button in header for heads/admins
+    const newTaskBtn = document.getElementById("newTaskBtn");
+    newTaskBtn.style.display = (currentUser.role === "head" || currentUser.role === "admin") ? "inline-flex" : "none";
 
     showView("tasks");
     await loadTasks();
@@ -494,12 +507,7 @@ document.getElementById("createTaskBtn").onclick = async () => {
         status:      "To Do"
     };
 
-    // Clear form
-    ["taskTitle","taskDesc","taskDueDate"].forEach(id => {
-        document.getElementById(id).value = "";
-    });
-
-    await createTask(newTask);
+    await createTask(newTask); // modal closed + fields cleared inside createTask/closeCreateModal
 };
 
 // ============================================================
@@ -511,10 +519,14 @@ document.getElementById("filterDept").onchange     = renderTaskBoard;
 document.getElementById("filterStatus").onchange   = renderTaskBoard;
 document.getElementById("refreshBtn").onclick       = loadTasks;
 document.getElementById("sendEodWhatsAppBtn").onclick = sendEodWhatsApp;
+document.getElementById("newTaskBtn").onclick       = openCreateModal;
 
-// Close modal on overlay click
+// Close modals when clicking the dark overlay
 document.getElementById("modal").onclick = (e) => {
     if (e.target === document.getElementById("modal")) closeModal();
+};
+document.getElementById("createModal").onclick = (e) => {
+    if (e.target === document.getElementById("createModal")) closeCreateModal();
 };
 
 // Nav — active state is handled inside showView(), so no extra listener needed here.
