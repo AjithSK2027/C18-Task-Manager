@@ -35,7 +35,6 @@
             </div>
             <nav class="nav">
                 <button class="nav-item active" data-view="tasks" onclick="showView('tasks')">📋 Tasks</button>
-                <button class="nav-item" data-view="create" onclick="showView('create')" id="navCreate" style="display:none;">➕ Create Task</button>
             </nav>
             <div class="user-chip">
                 <div class="user-avatar" id="userAvatar"></div>
@@ -49,13 +48,14 @@
 
         <main class="main">
 
-            <!-- TASKS VIEW -->
+            <!-- TASKS VIEW (only view — create task is a modal) -->
             <div id="viewTasks">
                 <div class="page-header">
                     <h2>All Tasks</h2>
                     <div class="header-actions">
                         <button class="btn btn-ghost" id="refreshBtn">🔄 Refresh</button>
                         <button class="btn btn-secondary" id="sendEodWhatsAppBtn">📢 EOD Report</button>
+                        <button class="btn btn-primary" id="newTaskBtn" style="display:none;">＋ New Task</button>
                     </div>
                 </div>
 
@@ -75,52 +75,50 @@
                 <div id="taskBoard"></div>
             </div>
 
-            <!-- CREATE TASK VIEW -->
-            <div id="viewCreate" style="display:none;">
-                <div class="page-header">
-                    <h2>Create New Task</h2>
-                </div>
-                <div class="form-card">
-                    <div class="form-grid">
-                        <div class="form-group form-full">
-                            <label>Task Title *</label>
-                            <input type="text" id="taskTitle" placeholder="Describe the task clearly…">
-                        </div>
-                        <div class="form-group">
-                            <label>Property</label>
-                            <select id="taskProperty"></select>
-                        </div>
-                        <div class="form-group">
-                            <label>Department</label>
-                            <select id="taskDept"></select>
-                        </div>
-                        <div class="form-group">
-                            <label>Assign To</label>
-                            <select id="taskAssignee"></select>
-                        </div>
-                        <div class="form-group">
-                            <label>Due Date</label>
-                            <input type="date" id="taskDueDate">
-                        </div>
-                        <div class="form-group form-full">
-                            <label>Description</label>
-                            <textarea id="taskDesc" placeholder="Additional details, notes, or links…" rows="4"></textarea>
-                        </div>
-                    </div>
-                    <div class="form-actions">
-                        <button class="btn btn-ghost" onclick="showView('tasks')">Cancel</button>
-                        <button class="btn btn-primary" id="createTaskBtn">Create Task →</button>
-                    </div>
-                </div>
-            </div>
-
         </main>
     </div>
 
     <!-- TOAST -->
     <div id="toast"></div>
 
-    <!-- MODAL for Edit Task -->
+    <!-- CREATE TASK MODAL -->
+    <div id="createModal" class="modal-overlay" style="display:none;">
+        <div class="modal-card modal-wide">
+            <h3>Create New Task</h3>
+            <div class="form-grid">
+                <div class="form-group form-full">
+                    <label>Task Title *</label>
+                    <input type="text" id="taskTitle" placeholder="Describe the task clearly…">
+                </div>
+                <div class="form-group">
+                    <label>Property</label>
+                    <select id="taskProperty"></select>
+                </div>
+                <div class="form-group">
+                    <label>Department</label>
+                    <select id="taskDept"></select>
+                </div>
+                <div class="form-group">
+                    <label>Assign To</label>
+                    <select id="taskAssignee"></select>
+                </div>
+                <div class="form-group">
+                    <label>Due Date</label>
+                    <input type="date" id="taskDueDate">
+                </div>
+                <div class="form-group form-full">
+                    <label>Description</label>
+                    <textarea id="taskDesc" placeholder="Additional details, notes, or links…" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="form-actions" style="margin-top:20px;">
+                <button class="btn btn-ghost" onclick="closeCreateModal()">Cancel</button>
+                <button class="btn btn-primary" id="createTaskBtn">Create Task →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT / COMMENT / ATTACHMENT MODAL -->
     <div id="modal" class="modal-overlay" style="display:none;">
         <div class="modal-card">
             <h3 id="modalTitle">Edit Task</h3>
