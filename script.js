@@ -25,10 +25,10 @@ function toast(msg, type = "") {
 function showView(view) {
     document.getElementById("viewTasks").style.display  = view === "tasks"  ? "block" : "none";
     document.getElementById("viewCreate").style.display = view === "create" ? "block" : "none";
-    document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
-    const map = { tasks: 0, create: 1 };
-    const items = document.querySelectorAll(".nav-item");
-    if (items[map[view]]) items[map[view]].classList.add("active");
+    // Set active nav item by matching data-view attribute
+    document.querySelectorAll(".nav-item").forEach(b => {
+        b.classList.toggle("active", b.dataset.view === view);
+    });
 }
 
 function getStatusClass(status) {
@@ -479,6 +479,7 @@ document.getElementById("logoutBtn").onclick = () => {
 // ============================================================
 
 document.getElementById("createTaskBtn").onclick = async () => {
+    if (!currentUser) { toast("Please log in first.", "error"); return; }
     const title = document.getElementById("taskTitle").value.trim();
     if (!title) { toast("Task title is required.", "error"); return; }
 
@@ -516,13 +517,7 @@ document.getElementById("modal").onclick = (e) => {
     if (e.target === document.getElementById("modal")) closeModal();
 };
 
-// Nav
-document.querySelectorAll(".nav-item").forEach((btn, i) => {
-    btn.onclick = () => {
-        document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-    };
-});
+// Nav — active state is handled inside showView(), so no extra listener needed here.
 
 // ============================================================
 // FIX: Sequential init — no race conditions
