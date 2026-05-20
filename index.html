@@ -1,0 +1,131 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>C18 Task Workspace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="background-layer"></div>
+
+  <section id="loginView" class="view view-login">
+    <div class="login-card">
+      <div class="brand-hero">
+        <img src="./logo.png" alt="C18 Logo" class="brand-logo">
+        <div>
+          <p class="eyebrow">C18 Company</p>
+          <h1>Task Workspace</h1>
+        </div>
+      </div>
+      <p class="supporting">Heads create and assign tasks. Employees update status and notes.</p>
+
+      <label for="userSelect">User</label>
+      <select id="userSelect"></select>
+
+      <label for="pinInput">PIN</label>
+      <input id="pinInput" type="password" placeholder="Enter your PIN">
+
+      <button id="loginBtn" class="btn btn-primary">Login</button>
+      <p id="loginHelp" class="muted">Initial demo PINs are managed in the <code>employees</code> sheet.</p>
+    </div>
+  </section>
+
+  <section id="appView" class="view" hidden style="display:none;">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="./logo.png" alt="C18 Logo" class="brand-logo-small">
+        <div>
+          <p class="eyebrow">C18 Company</p>
+          <h2>Task Console</h2>
+        </div>
+        <p id="sessionMeta" class="muted"></p>
+      </div>
+
+      <div class="nav-block">
+        <button id="refreshBtn" class="btn btn-secondary btn-full">Refresh Tasks</button>
+        <button id="openCreateBtn" class="btn btn-primary btn-full">Create Task</button>
+        <button id="sendEodBtn" class="btn btn-secondary btn-full">Send EOD to WhatsApp Group</button>
+        <p class="muted eod-caption">EOD goes to the company WhatsApp group.</p>
+      </div>
+
+      <button id="logoutBtn" class="btn btn-ghost btn-full">Logout</button>
+    </aside>
+
+    <main class="workspace">
+      <header class="workspace-header">
+        <h1>Task Board</h1>
+        <p class="muted">Properties: Camp Alpha, Good Earth Swimming Pool Homestay</p>
+      </header>
+
+      <section class="filters">
+        <select id="propertyFilter">
+          <option value="">All Properties</option>
+        </select>
+        <select id="departmentFilter">
+          <option value="">All Departments</option>
+        </select>
+        <select id="statusFilter">
+          <option value="">All Status</option>
+          <option value="Pending">Pending</option>
+          <option value="Done">Done</option>
+          <option value="Cancelled">Cancelled</option>
+        </select>
+      </section>
+
+      <section id="summaryStrip" class="summary-strip"></section>
+
+      <section id="taskTableWrap" class="table-wrap"></section>
+    </main>
+  </section>
+
+  <section id="createTaskModal" class="modal" hidden style="display:none;">
+    <div class="modal-card">
+      <h3>Create New Task</h3>
+      <form id="createTaskForm">
+        <label for="taskTitle">Task Title</label>
+        <input id="taskTitle" name="taskTitle" type="text" required>
+
+        <label for="taskProperty">Property</label>
+        <select id="taskProperty" name="taskProperty" required></select>
+
+        <label for="taskDepartment">Department</label>
+        <select id="taskDepartment" name="taskDepartment" required></select>
+
+        <label for="taskAssignee">Assign To</label>
+        <select id="taskAssignee" name="taskAssignee" required></select>
+
+        <label for="taskDueDate">Due Date</label>
+        <input id="taskDueDate" name="taskDueDate" type="date">
+
+        <label for="taskNotes">Task Notes</label>
+        <textarea id="taskNotes" name="taskNotes" rows="4" placeholder="Add instructions, links, or details"></textarea>
+
+        <div class="modal-actions">
+          <button type="button" id="cancelCreateBtn" class="btn btn-ghost">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Task</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section id="commentModal" class="modal" hidden style="display:none;">
+    <div class="modal-card">
+      <h3>Task Notes and Comments</h3>
+      <div id="commentHistory" class="comment-history"></div>
+      <textarea id="commentInput" rows="4" placeholder="Write a new comment"></textarea>
+      <div class="modal-actions">
+        <button type="button" id="cancelCommentBtn" class="btn btn-ghost">Close</button>
+        <button type="button" id="saveCommentBtn" class="btn btn-primary">Save Comment</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
