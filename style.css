@@ -363,6 +363,9 @@ td { padding: 12px 14px; vertical-align: middle; color: var(--text); }
     gap: 20px;
     animation: fadeUp 0.2s ease;
 }
+.modal-wide {
+    width: 680px;
+}
 .modal-card h3 {
     font-family: var(--font-display);
     font-size: 1.4rem;
