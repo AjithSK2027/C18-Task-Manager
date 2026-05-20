@@ -1,4 +1,4 @@
-const API_BASE = "YOUR_APPS_SCRIPT_URL"; // REPLACE WITH YOUR DEPLOYED URL
+const API_BASE = "https://script.google.com/macros/s/AKfycbxcSUPA--NazkTmN0BByBGZb_KcvRHjsCwFCqWxXr39ggYdIDLVb5OJty83SQBllZ7d/exec"; // REPLACE WITH YOUR DEPLOYED URL
 
 let currentUser = null;
 let allTasks = [];
