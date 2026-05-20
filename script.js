@@ -1,10 +1,32 @@
-const API_BASE = "YOUR_APPS_SCRIPT_URL"; // REPLACE WITH YOUR DEPLOYED URL
+const API_BASE = "https://script.google.com/macros/s/AKfycbxcSUPA--NazkTmN0BByBGZb_KcvRHjsCwFCqWxXr39ggYdIDLVb5OJty83SQBllZ7d/exec"; // REPLACE WITH YOUR DEPLOYED URL
 
 let currentUser = null;
 let allTasks = [];
 let employees = [];
-let config = {};
 
+// ---------- Helper: WhatsApp direct message (Coffeeland style) ----------
+function sendWhatsAppDirect(phoneNumber, message) {
+    let ph = String(phoneNumber).replace(/\D/g, '');
+    if (!ph.startsWith('91')) ph = '91' + ph;
+    const url = `https://wa.me/${ph}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+}
+
+// ---------- Helper: Open WhatsApp group (EOD) ----------
+const GROUP_LINK = "https://chat.whatsapp.com/KNKOOhEgIqdE9T1w8Jtjot"; // Your group invite link
+
+function sendEODToGroup(reportText) {
+    // Copy report to clipboard
+    navigator.clipboard.writeText(reportText).then(() => {
+        alert("EOD report copied to clipboard.\n\nNow opening WhatsApp group. Paste the message there.");
+        window.open(GROUP_LINK, '_blank');
+    }).catch(() => {
+        alert("Could not copy automatically. Please copy this report manually:\n\n" + reportText);
+        window.open(GROUP_LINK, '_blank');
+    });
+}
+
+// ---------- API calls ----------
 async function loadEmployees() {
     const res = await fetch(`${API_BASE}?action=getEmployees`);
     const data = await res.json();
@@ -26,12 +48,6 @@ async function loadTasks() {
     renderTaskBoard();
 }
 
-async function loadConfig() {
-    const res = await fetch(`${API_BASE}?action=getConfig`);
-    const data = await res.json();
-    config = data;
-}
-
 async function createTask(taskObj) {
     const res = await fetch(API_BASE, {
         method: "POST",
@@ -40,7 +56,17 @@ async function createTask(taskObj) {
     });
     const result = await res.json();
     if (result.success) {
-        alert("Task created. WhatsApp notification sent automatically.");
+        // After creation, ask if head wants to send WhatsApp to employee
+        const assignee = employees.find(e => e.name === taskObj.assignedTo);
+        if (assignee && assignee.whatsapp) {
+            const confirmSend = confirm(`Task created. Send WhatsApp notification to ${assignee.name}?`);
+            if (confirmSend) {
+                const msg = `📋 *New Task from ${currentUser.name}* (${taskObj.department})\n\n*${taskObj.title}*\nProperty: ${taskObj.property}\nDue: ${taskObj.dueDate || "soon"}\nDescription: ${taskObj.description || "-"}\n\nPlease log in to C18 app to update status.`;
+                sendWhatsAppDirect(assignee.whatsapp, msg);
+            }
+        } else {
+            alert("Task created. No WhatsApp number for assignee.");
+        }
         loadTasks();
     } else {
         alert("Error: " + result.error);
@@ -96,6 +122,22 @@ async function addAttachment(taskId, url, fileName) {
     loadTasks();
 }
 
+// ---------- Generate EOD Report Text ----------
+async function generateEODReportText() {
+    const res = await fetch(`${API_BASE}?action=getTasks`);
+    const data = await res.json();
+    const tasks = data.tasks;
+    const today = new Date().toISOString().slice(0,10);
+    const completedToday = tasks.filter(t => t.status === "Done" && t.completedAt && t.completedAt.slice(0,10) === today);
+    const pending = tasks.filter(t => t.status !== "Done");
+    let report = `📊 *C18 End of Day Report* - ${today}\n\n✅ *Completed Today (${completedToday.length})*:\n`;
+    completedToday.forEach(t => { report += `- ${t.title} (${t.assignedTo})\n`; });
+    report += `\n⏳ *Pending / Carried Over (${pending.length})*:\n`;
+    pending.forEach(t => { report += `- ${t.title} → ${t.assignedTo} (Due ${t.dueDate || "no deadline"}) [${t.status}]\n`; });
+    return report;
+}
+
+// ---------- Render Task Board ----------
 function renderTaskBoard() {
     let filtered = [...allTasks];
     const propFilter = document.getElementById("filterProperty").value;
@@ -111,8 +153,9 @@ function renderTaskBoard() {
         filtered = filtered.filter(t => t.department === currentUser.department);
     }
     
-    let html = '<table>胺<
-        <th>Title</th><th>Property</th><th>Dept</th><th>Assigned To</th><th>Status</th><th>Due Date</th><th>Actions</th><th>Comments</th><th>Attachments</th></tr>';
+    let html = '<table border="1"><tr>' +
+        '<th>Title</th><th>Property</th><th>Dept</th><th>Assigned To</th><th>Status</th><th>Due Date</th><th>Actions</th><th>Comments</th><th>Attachments</th>' +
+        '</tr>';
     filtered.forEach(task => {
         html += `<tr>
             <td>${task.title}</td>
@@ -144,7 +187,7 @@ function renderTaskBoard() {
     document.getElementById("taskBoard").innerHTML = html;
 }
 
-// Helper functions for prompts
+// ---------- Prompt helpers ----------
 function editTaskPrompt(taskId) {
     const task = allTasks.find(t => t.id == taskId);
     const newTitle = prompt("Edit Title", task.title);
@@ -163,6 +206,7 @@ function addAttachmentPrompt(taskId) {
     if (url && fileName) addAttachment(taskId, url, fileName);
 }
 
+// ---------- Filters & Form Population ----------
 async function populateFiltersAndForm() {
     let res = await fetch(`${API_BASE}?action=getProperties`);
     let data = await res.json();
@@ -198,26 +242,13 @@ async function populateFiltersAndForm() {
     });
 }
 
-// EOD WhatsApp manual button - sends to heads individually
-async function sendEodWhatsApp() {
-    const res = await fetch(`${API_BASE}?action=getTasks`);
-    const data = await res.json();
-    const tasks = data.tasks;
-    const today = new Date().toISOString().slice(0,10);
-    const completedToday = tasks.filter(t => t.status === "Done" && t.completedAt && t.completedAt.slice(0,10) === today);
-    const pending = tasks.filter(t => t.status !== "Done");
-    let report = `📊 C18 End of Day Report - ${today}\n\n✅ Completed today (${completedToday.length}):\n`;
-    completedToday.forEach(t => { report += `- ${t.title} (${t.assignedTo})\n`; });
-    report += `\n⏳ Pending (${pending.length}):\n`;
-    pending.forEach(t => { report += `- ${t.title} → ${t.assignedTo} (Due ${t.dueDate || 'no deadline'})\n`; });
-    
-    // Send to each head's WhatsApp via sendwa (calls server-side function? we can do it client-side via link? but we have automatic server-side for EOD at 8 PM. This button is manual fallback.
-    // For simplicity, we'll just copy to clipboard and ask user to share manually.
-    await navigator.clipboard.writeText(report);
-    alert("EOD report copied to clipboard. You can paste it in the WhatsApp group.");
+// ---------- EOD WhatsApp Button Handler ----------
+async function onSendEodWhatsApp() {
+    const report = await generateEODReportText();
+    sendEODToGroup(report);
 }
 
-// Login
+// ---------- Login & UI ----------
 document.getElementById("loginBtn").onclick = async () => {
     const selectedName = document.getElementById("userSelect").value;
     if (!selectedName) return;
@@ -264,8 +295,8 @@ document.getElementById("filterProperty").onchange = () => renderTaskBoard();
 document.getElementById("filterDept").onchange = () => renderTaskBoard();
 document.getElementById("filterStatus").onchange = () => renderTaskBoard();
 document.getElementById("refreshBtn").onclick = () => loadTasks();
-document.getElementById("sendEodWhatsAppBtn").onclick = sendEodWhatsApp;
+document.getElementById("sendEodWhatsAppBtn").onclick = onSendEodWhatsApp;
 
+// ---------- Initial Load ----------
 loadEmployees();
-loadConfig();
 populateFiltersAndForm();
