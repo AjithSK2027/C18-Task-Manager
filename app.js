@@ -1,4 +1,4 @@
-﻿const API_BASE = "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
+﻿const API_BASE = "https://script.google.com/macros/s/AKfycbzOwVAfAmZEkoC1E698HxiiwiMw7fOjhSMwFS8OmcED_4gEuOxSziJrlcqD3CINwf2_/exec";
 const STATUS_VALUES = ["Pending", "Done", "Cancelled"];
 
 const state = {
