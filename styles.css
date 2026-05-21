@@ -302,6 +302,76 @@ input:focus, select:focus, textarea:focus {
   /* select elements styled globally */
 }
 
+/* ===== CALENDAR STRIP ===== */
+.calendar-strip-wrap {
+  background: var(--surface-glass);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.calendar-month {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.cal-day {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: var(--radius-sm);
+  padding: 8px 0;
+  text-align: center;
+  font-size: 0.85rem;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.cal-day:hover {
+  background: rgba(255, 255, 255, 0.8);
+  transform: translateY(-2px);
+}
+
+.cal-day-name {
+  display: block;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 2px;
+}
+
+.cal-day-num {
+  display: block;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.cal-today {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+  box-shadow: 0 4px 12px rgba(44, 94, 173, 0.25);
+}
+.cal-today .cal-day-name,
+.cal-today .cal-day-num {
+  color: white;
+}
+
 /* ===== SUMMARY CARDS ===== */
 .summary-strip {
   display: grid;
