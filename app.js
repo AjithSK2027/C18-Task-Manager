@@ -288,21 +288,18 @@ function parseDump(text) {
   let currentProperty = "";
 
   const isPropertyLine = (line) => {
-    // line with emoji, or ALL CAPS SHORT, or starts with *
-    return /[\u{1F300}-\u{1FAFF}]/u.test(line) || 
+    // Emoji detection via surrogate pairs (no u flag needed)
+    return /[\uD800-\uDBFF][\uDC00-\uDFFF]/.test(line) ||
            /^[\*]?[A-Z\s]{3,}[\*]?$/.test(line) ||
            /^[A-Z][a-z]+ [a-z]+/.test(line);
   };
 
   for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed) {
-      // empty line resets property? No, keep it.
-      continue;
-    }
+    if (!trimmed) continue;
 
     if (isPropertyLine(trimmed)) {
-      currentProperty = trimmed.replace(/^\*+|\*+$/g, "").replace(/[\u{1F300}-\u{1FAFF}]/g, "").trim();
+      currentProperty = trimmed.replace(/^\*+|\*+$/g, "").replace(/[\u{1F300}-\u{1FAFF}]/gu, "").trim();
       if (!currentProperty) currentProperty = trimmed;
       continue;
     }
