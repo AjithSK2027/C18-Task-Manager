@@ -214,9 +214,15 @@ Good earth 🌎
 
   // Populate department dropdown
   const departments = state.bootstrap.departments || [];
-  els.taskDepartment.innerHTML = "";
-  departments.forEach(d => els.taskDepartment.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`));
-  syncAssigneeOptions();
+els.taskDepartment.innerHTML = "";
+departments.forEach(d => els.taskDepartment.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`));
+
+// ✅ Set default department so assignees load immediately
+if (departments.length > 0) {
+  els.taskDepartment.value = departments[0];
+}
+
+syncAssigneeOptions(); 
   initDeptPills();
 
   // Bind new buttons
@@ -241,8 +247,8 @@ function syncAssigneeOptions() {
   const users = getActiveUsers().filter(u => u.role === "employee" && toKey(u.department) === toKey(dept));
   els.taskAssignee.innerHTML = "";
   if (!users.length) {
-    els.taskAssignee.innerHTML = '<option value="">No employee in department</option>';
-    els.taskAssignee.disabled = true;
+    els.taskAssignee.innerHTML = '<option value="">⚠️ No employee in department</option>';
+    els.taskAssignee.disabled = true;   // but don't freeze: submit validation will catch it
   } else {
     els.taskAssignee.disabled = false;
     users.forEach(u => els.taskAssignee.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(u.id)}">${escapeHtml(u.name)}</option>`));
@@ -261,13 +267,15 @@ function onParseDump() {
     const row = document.createElement("div");
     row.className = "task-item-row";
     row.innerHTML = `
-      <div class="task-item-top">
-        <span class="task-item-label">${escapeHtml(t.property || "Task")}</span>
-        <button type="button" class="btn btn-ghost task-item-remove">✕</button>
-      </div>
-      <input type="text" class="task-item-title" value="${escapeHtml(t.title)}" placeholder="Title">
-      <input type="date" class="task-item-due" value="${escapeHtml(t.dueDate||"")}">
-    `;
+  <div class="task-item-top">
+    <span class="task-item-label">${escapeHtml(t.property || "Task")}</span>
+    <button type="button" class="btn btn-ghost task-item-remove">✕</button>
+  </div>
+  <input type="text" class="task-item-title" value="${escapeHtml(t.title)}" placeholder="Title">
+  <div style="display:flex; gap:8px;">
+    <input type="date" class="task-item-due" value="${escapeHtml(t.dueDate||"")}" style="flex:1;">
+  </div>
+`;
     row.querySelector(".task-item-remove").addEventListener("click", () => {
       row.remove();
       if (els.taskItemsList.children.length === 0) {
