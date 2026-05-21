@@ -1,5 +1,5 @@
 /* ========================================================
-   C18 Task Workspace — Final Clean App Logic
+   C18 Task Workspace — Final Robust App Logic
    ======================================================== */
 const API_BASE = "https://script.google.com/macros/s/AKfycbz9sCf54W8rjASthCcVDx7nAHbd4_iHB2VoyrPhADEEynN3weugEVU5IECNi0i4LAh_/exec";
 const STATUS_VALUES = ["Pending", "Done", "Cancelled"];
@@ -40,6 +40,7 @@ function captureElements() {
   els.taskTableWrap = document.getElementById("taskTableWrap");
   els.createTaskModal = document.getElementById("createTaskModal");
   els.createTaskForm = document.getElementById("createTaskForm");
+  // These will be re-captured inside openCreateTaskModal after innerHTML rebuild
   els.taskDepartment = document.getElementById("taskDepartment");
   els.taskAssignee = document.getElementById("taskAssignee");
   els.taskItemsList = document.getElementById("taskItemsList");
@@ -53,52 +54,71 @@ function captureElements() {
 }
 
 function bindEvents() {
-  els.loginBtn.addEventListener("click", onLogin);
-  els.logoutBtn.addEventListener("click", onLogout);
-  els.refreshBtn.addEventListener("click", refreshTasks);
-  els.openTeamWhatsAppBtn.addEventListener("click", onOpenTeamWhatsApp);
-  els.sendEodBtn.addEventListener("click", onSendEod);
-  els.propertyFilter.addEventListener("change", renderTasksTable);
-  els.departmentFilter.addEventListener("change", renderTasksTable);
-  els.statusFilter.addEventListener("change", renderTasksTable);
-  els.openCreateBtn.addEventListener("click", openCreateTaskModal);
-  els.cancelCreateBtn.addEventListener("click", closeCreateTaskModal);
-  els.createTaskForm.addEventListener("submit", onCreateTaskSubmit);
-  els.taskDepartment.addEventListener("change", syncAssigneeOptions);
-  els.taskTableWrap.addEventListener("change", onTableActionChange);
-  els.taskTableWrap.addEventListener("click", onTableActionClick);
-  els.cancelCommentBtn.addEventListener("click", closeCommentModal);
-  els.saveCommentBtn.addEventListener("click", onSaveComment);
-  els.createTaskModal.addEventListener("click", (e) => { if (e.target === els.createTaskModal) closeCreateTaskModal(); });
-  els.commentModal.addEventListener("click", (e) => { if (e.target === els.commentModal) closeCommentModal(); });
+  if (els.loginBtn) els.loginBtn.addEventListener("click", onLogin);
+  if (els.logoutBtn) els.logoutBtn.addEventListener("click", onLogout);
+  if (els.refreshBtn) els.refreshBtn.addEventListener("click", refreshTasks);
+  if (els.openTeamWhatsAppBtn) els.openTeamWhatsAppBtn.addEventListener("click", onOpenTeamWhatsApp);
+  if (els.sendEodBtn) els.sendEodBtn.addEventListener("click", onSendEod);
+  if (els.openCreateBtn) els.openCreateBtn.addEventListener("click", openCreateTaskModal);
+  if (els.cancelCreateBtn) els.cancelCreateBtn.addEventListener("click", closeCreateTaskModal);
+  if (els.createTaskForm) els.createTaskForm.addEventListener("submit", onCreateTaskSubmit);
+  if (els.taskTableWrap) {
+    els.taskTableWrap.addEventListener("change", onTableActionChange);
+    els.taskTableWrap.addEventListener("click", onTableActionClick);
+  }
+  if (els.cancelCommentBtn) els.cancelCommentBtn.addEventListener("click", closeCommentModal);
+  if (els.saveCommentBtn) els.saveCommentBtn.addEventListener("click", onSaveComment);
+  if (els.createTaskModal) els.createTaskModal.addEventListener("click", (e) => { if (e.target === els.createTaskModal) closeCreateTaskModal(); });
+  if (els.commentModal) els.commentModal.addEventListener("click", (e) => { if (e.target === els.commentModal) closeCommentModal(); });
+  // Filter change events (original hidden selects) – only if they exist
+  if (els.propertyFilter) els.propertyFilter.addEventListener("change", renderTasksTable);
+  if (els.departmentFilter) els.departmentFilter.addEventListener("change", renderTasksTable);
+  if (els.statusFilter) els.statusFilter.addEventListener("change", renderTasksTable);
+  // Mobile bottom-nav delegation
+  const mCreate = document.getElementById("openCreateBtn-m");
+  const mWhatsApp = document.getElementById("openTeamWhatsAppBtn-m");
+  const mEod = document.getElementById("sendEodBtn-m");
+  const mLogout = document.getElementById("logoutBtn-m");
+  if (mCreate && els.openCreateBtn) mCreate.addEventListener("click", () => els.openCreateBtn.click());
+  if (mWhatsApp && els.openTeamWhatsAppBtn) mWhatsApp.addEventListener("click", () => els.openTeamWhatsAppBtn.click());
+  if (mEod && els.sendEodBtn) mEod.addEventListener("click", () => els.sendEodBtn.click());
+  if (mLogout && els.logoutBtn) mLogout.addEventListener("click", () => els.logoutBtn.click());
 }
 
 async function initializeApp() {
-  els.loginView.hidden = false; els.loginView.style.display = "grid";
-  els.appView.hidden = true; els.appView.style.display = "none";
-  els.createTaskModal.hidden = true; els.createTaskModal.style.display = "none";
-  els.commentModal.hidden = true; els.commentModal.style.display = "none";
-  if (!isApiConfigured()) {
-    els.userSelect.innerHTML = '<option value="">Set API_BASE first</option>';
-    els.userSelect.disabled = true;
-    els.pinInput.disabled = true;
-    els.loginBtn.disabled = true;
-    els.loginHelp.textContent = "Set API_BASE in app.js";
+  if (els.loginView) { els.loginView.hidden = false; els.loginView.style.display = "grid"; }
+  if (els.appView) { els.appView.hidden = true; els.appView.style.display = "none"; }
+  if (els.createTaskModal) { els.createTaskModal.hidden = true; els.createTaskModal.style.display = "none"; }
+  if (els.commentModal) { els.commentModal.hidden = true; els.commentModal.style.display = "none"; }
+
+  if (!API_BASE.startsWith("https://script.google.com/macros/s/") || !API_BASE.endsWith("/exec")) {
+    if (els.userSelect) {
+      els.userSelect.innerHTML = '<option value="">Set API_BASE first</option>';
+      els.userSelect.disabled = true;
+    }
+    if (els.pinInput) els.pinInput.disabled = true;
+    if (els.loginBtn) els.loginBtn.disabled = true;
+    if (els.loginHelp) els.loginHelp.textContent = "Set API_BASE in app.js";
     return;
   }
+
   try {
     const res = await apiGet("bootstrap");
+    console.log("Bootstrap response:", res);
     if (!res.success) throw new Error(res.error || "Failed to load data");
     state.bootstrap = res;
     populateLoginUsers();
     populateFilterOptions();
-  } catch (err) { showToast(err.message, true); }
+    if (document.getElementById("filterPills")) buildFilterPills();
+  } catch (err) {
+    showToast(err.message, true);
+    if (els.loginHelp) els.loginHelp.textContent = "Error: " + err.message;
+  }
 }
-
-function isApiConfigured() { return API_BASE && API_BASE.startsWith("https://script.google.com/macros/s/") && API_BASE.endsWith("/exec"); }
 
 /* ── LOGIN / LOGOUT ── */
 async function onLogin() {
+  if (!els.userSelect || !els.pinInput) return;
   const userId = (els.userSelect.value || "").trim();
   const pin = (els.pinInput.value || "").trim();
   if (!userId) return showToast("Choose a user", true);
@@ -108,27 +128,34 @@ async function onLogin() {
     state.user = res.user;
     state.tasks = [];
     state.activeCommentTaskId = null;
-    els.loginView.hidden = true; els.loginView.style.display = "none";
-    els.appView.hidden = false; els.appView.style.display = "grid";
-    els.sessionMeta.textContent = `${state.user.name} | ${toTitleCase(state.user.role)} | ${state.user.department || "General"}`;
-    els.openCreateBtn.hidden = !canCreateTasks();
-    els.openTeamWhatsAppBtn.hidden = false;
-    els.sendEodBtn.hidden = false;
-    els.sendEodBtn.disabled = false;
-    els.sendEodBtn.textContent = "Send EOD to WhatsApp Group";
+    if (els.loginView) { els.loginView.hidden = true; els.loginView.style.display = "none"; }
+    if (els.appView) { els.appView.hidden = false; els.appView.style.display = "grid"; }
+    if (els.sessionMeta) els.sessionMeta.textContent = `${state.user.name} | ${toTitleCase(state.user.role)} | ${state.user.department || "General"}`;
+    if (els.openCreateBtn) els.openCreateBtn.hidden = !canCreateTasks();
+    if (els.openTeamWhatsAppBtn) els.openTeamWhatsAppBtn.hidden = false;
+    if (els.sendEodBtn) {
+      els.sendEodBtn.hidden = false;
+      els.sendEodBtn.disabled = false;
+      els.sendEodBtn.textContent = "Send EOD to WhatsApp Group";
+    }
     await refreshTasks();
     showToast(`Welcome, ${state.user.name}`);
   } catch (err) { showToast(err.message, true); }
 }
 
 function onLogout() {
-  state.user = null; state.tasks = [];
-  els.pinInput.value = "";
-  els.statusFilter.value = els.departmentFilter.value = els.propertyFilter.value = "";
-  els.appView.hidden = true; els.appView.style.display = "none";
-  els.loginView.hidden = false; els.loginView.style.display = "grid";
-  els.createTaskModal.hidden = true; els.commentModal.hidden = true;
-  els.summaryStrip.innerHTML = els.taskTableWrap.innerHTML = "";
+  state.user = null;
+  state.tasks = [];
+  if (els.pinInput) els.pinInput.value = "";
+  if (els.statusFilter) els.statusFilter.value = "";
+  if (els.departmentFilter) els.departmentFilter.value = "";
+  if (els.propertyFilter) els.propertyFilter.value = "";
+  if (els.appView) { els.appView.hidden = true; els.appView.style.display = "none"; }
+  if (els.loginView) { els.loginView.hidden = false; els.loginView.style.display = "grid"; }
+  if (els.createTaskModal) { els.createTaskModal.hidden = true; els.createTaskModal.style.display = "none"; }
+  if (els.commentModal) { els.commentModal.hidden = true; els.commentModal.style.display = "none"; }
+  if (els.summaryStrip) els.summaryStrip.innerHTML = "";
+  if (els.taskTableWrap) els.taskTableWrap.innerHTML = "";
 }
 
 async function refreshTasks() {
@@ -137,32 +164,37 @@ async function refreshTasks() {
     const res = await apiGet("getTasks", { userId: state.user.id });
     if (!res.success) throw new Error(res.error);
     state.tasks = Array.isArray(res.tasks) ? res.tasks : [];
-    renderSummary(); renderTasksTable();
+    renderSummary();
+    renderTasksTable();
   } catch (err) { showToast(err.message, true); }
 }
 
 function populateLoginUsers() {
+  if (!els.userSelect) return;
   const users = getActiveUsers();
   let opts = '<option value="">Select user</option>';
-  users.sort((a,b) => a.name.localeCompare(b.name)).forEach(u => {
+  users.sort((a, b) => a.name.localeCompare(b.name)).forEach(u => {
     opts += `<option value="${escapeHtml(u.id)}">${escapeHtml(u.name)} - ${toTitleCase(u.role)} (${escapeHtml(u.department||"General")})</option>`;
   });
   els.userSelect.innerHTML = opts;
 }
 
 function populateFilterOptions() {
-  els.propertyFilter.innerHTML = '<option value="">All Properties</option>';
-  (state.bootstrap.properties||[]).forEach(p => els.propertyFilter.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`));
-  els.departmentFilter.innerHTML = '<option value="">All Departments</option>';
-  (state.bootstrap.departments||[]).forEach(d => els.departmentFilter.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`));
+  if (els.propertyFilter) {
+    els.propertyFilter.innerHTML = '<option value="">All Properties</option>';
+    (state.bootstrap.properties || []).forEach(p => els.propertyFilter.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`));
+  }
+  if (els.departmentFilter) {
+    els.departmentFilter.innerHTML = '<option value="">All Departments</option>';
+    (state.bootstrap.departments || []).forEach(d => els.departmentFilter.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`));
+  }
 }
 
 function buildFilterPills() {
-  const properties = state.bootstrap.properties || [];
-  const departments = state.bootstrap.departments || [];
-  const statuses = ["", "Pending", "Done", "Cancelled"];
   const container = document.getElementById("filterPills");
   if (!container) return;
+  const properties = state.bootstrap.properties || [];
+  const departments = state.bootstrap.departments || [];
 
   function createPill(label, id, options, currentValue, onChange) {
     const wrapper = document.createElement("div");
@@ -180,32 +212,30 @@ function buildFilterPills() {
     return wrapper;
   }
 
-  // Clear previous
   container.innerHTML = "";
 
   // Property pill
-  const propPill = createPill("Property", "propertyFilter", properties, els.propertyFilter.value, (e) => {
-    els.propertyFilter.value = e.target.value;
+  const propPill = createPill("Property", "propertyFilter-pill", properties, els.propertyFilter?.value || "", (e) => {
+    if (els.propertyFilter) els.propertyFilter.value = e.target.value;
     renderTasksTable();
   });
-  propPill.querySelector("select").style.backgroundImage = "none"; // optional
   container.appendChild(propPill);
 
   // Department pill
-  const deptPill = createPill("Department", "departmentFilter", departments, els.departmentFilter.value, (e) => {
-    els.departmentFilter.value = e.target.value;
+  const deptPill = createPill("Department", "departmentFilter-pill", departments, els.departmentFilter?.value || "", (e) => {
+    if (els.departmentFilter) els.departmentFilter.value = e.target.value;
     renderTasksTable();
   });
   container.appendChild(deptPill);
 
   // Status pill
-  const statusPill = createPill("Status", "statusFilter", [
+  const statusPill = createPill("Status", "statusFilter-pill", [
     { value: "", text: "● All Status" },
     { value: "Pending", text: "⏳ Pending" },
     { value: "Done", text: "✅ Done" },
     { value: "Cancelled", text: "✕ Cancelled" }
-  ], els.statusFilter.value, (e) => {
-    els.statusFilter.value = e.target.value;
+  ], els.statusFilter?.value || "", (e) => {
+    if (els.statusFilter) els.statusFilter.value = e.target.value;
     renderTasksTable();
   });
   container.appendChild(statusPill);
@@ -213,7 +243,7 @@ function buildFilterPills() {
 
 /* ── HELPERS ── */
 function getActiveUsers() {
-  return (state.bootstrap?.users||[]).filter(u => u.isActive);
+  return (state.bootstrap?.users || []).filter(u => u.isActive);
 }
 function canCreateTasks() {
   return state.user && (state.user.role === "head" || state.user.role === "admin");
@@ -232,6 +262,7 @@ function openCreateTaskModal() {
     showToast("Only heads can create tasks", true);
     return;
   }
+  if (!els.createTaskForm || !els.createTaskModal) return;
 
   els.createTaskForm.innerHTML = `
     <div class="form-field">
@@ -268,51 +299,49 @@ Good earth 🌎
     </div>
   `;
 
-  // 🔁 Re-capture the freshly created elements
+  // Re-capture freshly created elements
   els.taskDepartment = document.getElementById("taskDepartment");
   els.taskAssignee = document.getElementById("taskAssignee");
   els.taskItemsList = document.getElementById("taskItemsList");
 
-  // Populate department options and set default
-  const departments = state.bootstrap.departments || [];
-  els.taskDepartment.innerHTML = "";
-  departments.forEach(d => els.taskDepartment.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`));
-  if (departments.length > 0) {
-    els.taskDepartment.value = departments[0];
+  const departments = state.bootstrap?.departments || [];
+  if (els.taskDepartment) {
+    els.taskDepartment.innerHTML = "";
+    departments.forEach(d => els.taskDepartment.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`));
+    if (departments.length > 0) els.taskDepartment.value = departments[0];
   }
 
-  // Now sync assignee list
   syncAssigneeOptions();
-
-  // Re-initialise the pill buttons (it will attach change listener internally)
   initDeptPills();
 
-  // Bind parse, clear, and line-add buttons
-  document.getElementById("parseDumpBtn").addEventListener("click", onParseDump);
-  document.getElementById("clearDumpBtn").addEventListener("click", () => {
-    document.getElementById("dumpPreview").style.display = "none";
-    els.taskItemsList.innerHTML = "";
+  document.getElementById("parseDumpBtn")?.addEventListener("click", onParseDump);
+  document.getElementById("clearDumpBtn")?.addEventListener("click", () => {
+    const preview = document.getElementById("dumpPreview");
+    if (preview) preview.style.display = "none";
+    if (els.taskItemsList) els.taskItemsList.innerHTML = "";
   });
 
-  // Re-attach department change listener (in case pills don't trigger it)
-  els.taskDepartment.addEventListener("change", syncAssigneeOptions);
+  if (els.taskDepartment) els.taskDepartment.addEventListener("change", syncAssigneeOptions);
 
   els.createTaskModal.hidden = false;
   els.createTaskModal.style.display = "grid";
 }
 
 function closeCreateTaskModal() {
-  els.createTaskModal.hidden = true;
-  els.createTaskModal.style.display = "none";
+  if (els.createTaskModal) {
+    els.createTaskModal.hidden = true;
+    els.createTaskModal.style.display = "none";
+  }
 }
 
 function syncAssigneeOptions() {
+  if (!els.taskDepartment || !els.taskAssignee) return;
   const dept = (els.taskDepartment.value || "").trim();
   const users = getActiveUsers().filter(u => u.role === "employee" && toKey(u.department) === toKey(dept));
   els.taskAssignee.innerHTML = "";
   if (!users.length) {
     els.taskAssignee.innerHTML = '<option value="">⚠️ No employee in department</option>';
-    els.taskAssignee.disabled = true;   // but don't freeze: submit validation will catch it
+    els.taskAssignee.disabled = true;
   } else {
     els.taskAssignee.disabled = false;
     users.forEach(u => els.taskAssignee.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(u.id)}">${escapeHtml(u.name)}</option>`));
@@ -320,38 +349,44 @@ function syncAssigneeOptions() {
 }
 
 function onParseDump() {
-  const raw = document.getElementById("dumpTextarea").value.trim();
+  const textarea = document.getElementById("dumpTextarea");
+  if (!textarea) return;
+  const raw = textarea.value.trim();
   if (!raw) return showToast("Paste or type some tasks first", true);
-  
   const tasks = parseDump(raw);
   if (tasks.length === 0) return showToast("No tasks found. Use 1. 2. format.", true);
 
+  if (!els.taskItemsList) return;
   els.taskItemsList.innerHTML = "";
-  tasks.forEach((t, i) => {
+  tasks.forEach((t) => {
     const row = document.createElement("div");
     row.className = "task-item-row";
     row.innerHTML = `
-  <div class="task-item-top">
-    <span class="task-item-label">${escapeHtml(t.property || "Task")}</span>
-    <button type="button" class="btn btn-ghost task-item-remove">✕</button>
-  </div>
-  <input type="text" class="task-item-title" value="${escapeHtml(t.title)}" placeholder="Title">
-  <div style="display:flex; gap:8px;">
-    <input type="date" class="task-item-due" value="${escapeHtml(t.dueDate||"")}" style="flex:1;">
-  </div>
-`;
+      <div class="task-item-top">
+        <span class="task-item-label">${escapeHtml(t.property || "Task")}</span>
+        <button type="button" class="btn btn-ghost task-item-remove">✕</button>
+      </div>
+      <input type="text" class="task-item-title" value="${escapeHtml(t.title)}" placeholder="Title">
+      <div style="display:flex; gap:8px;">
+        <input type="date" class="task-item-due" value="${escapeHtml(t.dueDate||"")}" style="flex:1;">
+      </div>
+    `;
     row.querySelector(".task-item-remove").addEventListener("click", () => {
       row.remove();
       if (els.taskItemsList.children.length === 0) {
-        document.getElementById("dumpPreview").style.display = "none";
+        const preview = document.getElementById("dumpPreview");
+        if (preview) preview.style.display = "none";
       }
-      document.getElementById("dumpCount").textContent = els.taskItemsList.children.length;
+      const countEl = document.getElementById("dumpCount");
+      if (countEl) countEl.textContent = els.taskItemsList.children.length;
     });
     els.taskItemsList.appendChild(row);
   });
 
-  document.getElementById("dumpCount").textContent = tasks.length;
-  document.getElementById("dumpPreview").style.display = "block";
+  const preview = document.getElementById("dumpPreview");
+  if (preview) preview.style.display = "block";
+  const countEl = document.getElementById("dumpCount");
+  if (countEl) countEl.textContent = tasks.length;
 }
 
 function parseDump(text) {
@@ -360,7 +395,6 @@ function parseDump(text) {
   let currentProperty = "";
 
   const isPropertyLine = (line) => {
-    // Emoji detection via surrogate pairs (no u flag needed)
     return /[\uD800-\uDBFF][\uDC00-\uDFFF]/.test(line) ||
            /^[\*]?[A-Z\s]{3,}[\*]?$/.test(line) ||
            /^[A-Z][a-z]+ [a-z]+/.test(line);
@@ -371,7 +405,7 @@ function parseDump(text) {
     if (!trimmed) continue;
 
     if (isPropertyLine(trimmed)) {
-      currentProperty = trimmed.replace(/^\*+|\*+$/g, "").replace(/[\u{1F300}-\u{1FAFF}]/gu, "").trim();
+      currentProperty = trimmed.replace(/^\*+|\*+$/g, "").replace(/[^a-zA-Z0-9\s\-&]/g, "").trim();
       if (!currentProperty) currentProperty = trimmed;
       continue;
     }
@@ -394,15 +428,13 @@ function parseDump(text) {
 
 async function onCreateTaskSubmit(event) {
   event.preventDefault();
-  if (!state.user) return;
+  if (!state.user || !els.taskAssignee || !els.taskDepartment) return;
 
-  // ensure assignee is enabled
   els.taskAssignee.disabled = false;
-
   const assigneeId = (els.taskAssignee.value || "").trim();
   if (!assigneeId) return showToast("Select an assignee", true);
 
-  const rows = Array.from(els.taskItemsList.querySelectorAll(".task-item-row"));
+  const rows = Array.from(els.taskItemsList?.querySelectorAll(".task-item-row") || []);
   if (rows.length === 0) return showToast("No tasks to create", true);
 
   const taskItems = rows.map(row => ({
@@ -430,8 +462,9 @@ async function onCreateTaskSubmit(event) {
   } catch (err) { showToast(err.message, true); }
 }
 
-/* ── TASK LIST (grouped checklist) ── */
+/* ── TASK LIST ── */
 function renderSummary() {
+  if (!els.summaryStrip) return;
   const visible = getFilteredTasks();
   const total = visible.length;
   const pending = visible.filter(t => t.status === "Pending").length;
@@ -449,6 +482,7 @@ function renderSummary() {
 }
 
 function renderTasksTable() {
+  if (!els.taskTableWrap) return;
   const tasks = getFilteredTasks();
   if (!tasks.length) {
     els.taskTableWrap.innerHTML = '<div class="empty-state">No tasks match your filters.</div>';
@@ -497,17 +531,19 @@ function renderTasksTable() {
 }
 
 function getFilteredTasks() {
-  const prop = (els.propertyFilter.value || "").trim();
-  const dept = (els.departmentFilter.value || "").trim();
-  const status = (els.statusFilter.value || "").trim();
+  const prop = (els.propertyFilter?.value || "").trim();
+  const dept = (els.departmentFilter?.value || "").trim();
+  const status = (els.statusFilter?.value || "").trim();
   return state.tasks.filter(t => {
     if (prop && toKey(t.property) !== toKey(prop)) return false;
     if (dept && toKey(t.department) !== toKey(dept)) return false;
     if (status && toKey(t.status) !== toKey(status)) return false;
     return true;
-  }).sort((a,b) => {
-    const order = { Pending:1, Done:2, Cancelled:3 };
-    return (order[a.status]||99) - (order[b.status]||99) || (a.dueDate||"").localeCompare(b.dueDate||"") || (b.createdAt||"").localeCompare(a.createdAt||"");
+  }).sort((a, b) => {
+    const order = { Pending: 1, Done: 2, Cancelled: 3 };
+    return (order[a.status] || 99) - (order[b.status] || 99) ||
+           (a.dueDate || "").localeCompare(b.dueDate || "") ||
+           (b.createdAt || "").localeCompare(a.createdAt || "");
   });
 }
 
@@ -533,26 +569,35 @@ function onTableActionClick(event) {
 
 function openCommentModal(taskId) {
   const task = state.tasks.find(t => t.id === taskId);
-  if (!task) return;
+  if (!task || !els.commentModal) return;
   state.activeCommentTaskId = taskId;
   els.commentInput.value = "";
   renderCommentHistory(task);
-  els.commentModal.hidden = false; els.commentModal.style.display = "grid";
+  els.commentModal.hidden = false;
+  els.commentModal.style.display = "grid";
 }
+
 function closeCommentModal() {
   state.activeCommentTaskId = null;
-  els.commentModal.hidden = true; els.commentModal.style.display = "none";
+  if (els.commentModal) {
+    els.commentModal.hidden = true;
+    els.commentModal.style.display = "none";
+  }
 }
+
 function renderCommentHistory(task) {
+  if (!els.commentHistory) return;
   const comments = Array.isArray(task.comments) ? task.comments : [];
   let html = task.notes ? `<div class="comment-item"><small>Note</small><div>${escapeHtml(task.notes)}</div></div>` : "";
   comments.forEach(c => html += `<div class="comment-item"><small>${escapeHtml(c.authorName||"")} · ${formatDateTime(c.createdAt)}</small><div>${escapeHtml(c.comment)}</div></div>`);
   els.commentHistory.innerHTML = html || '<p class="muted">No comments yet.</p>';
 }
+
 async function onSaveComment() {
   const taskId = state.activeCommentTaskId;
+  if (!taskId || !els.commentInput) return;
   const comment = els.commentInput.value.trim();
-  if (!taskId || !comment) return showToast("Comment cannot be empty", true);
+  if (!comment) return showToast("Comment cannot be empty", true);
   try {
     const res = await apiPost("addComment", { actorUserId: state.user.id, taskId, comment });
     if (!res.success) throw new Error(res.error);
@@ -569,6 +614,7 @@ async function onOpenTeamWhatsApp() {
   if (url) window.open(url, "_blank", "noopener,noreferrer");
   else showToast("Team WhatsApp URL not configured", true);
 }
+
 function getTeamWhatsAppUrl() {
   if (!state.bootstrap) return "";
   const direct = (state.bootstrap.teamWhatsAppUrl || "").trim();
@@ -576,6 +622,7 @@ function getTeamWhatsAppUrl() {
   const num = digitsOnly(state.bootstrap.whatsappGroupNumber || "");
   return num ? `https://wa.me/${num}?text=${encodeURIComponent("C18 team workspace")}` : "";
 }
+
 async function onSendEod() {
   if (!state.user) return;
   try {
@@ -586,55 +633,102 @@ async function onSendEod() {
 }
 
 /* ── API HELPERS ── */
-async function apiGet(action, params={}) {
+async function apiGet(action, params = {}) {
   const q = new URLSearchParams({ action, ...params });
   const res = await fetch(`${API_BASE}?${q}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
-async function apiPost(action, payload={}) {
+
+async function apiPost(action, payload = {}) {
   const params = new URLSearchParams({ action, ...payload });
-  const res = await fetch(API_BASE, { method:"POST", body: params });
+  const res = await fetch(API_BASE, { method: "POST", body: params });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
 /* ── UTILITIES ── */
-function showToast(msg, error=false) {
+function showToast(msg, error = false) {
+  if (!els.toast) return;
   els.toast.textContent = msg;
-  els.toast.className = `toast show${error?" error":""}`;
+  els.toast.className = `toast show${error ? " error" : ""}`;
   clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(() => els.toast.className = "toast", 3400);
+  showToast.timer = setTimeout(() => { els.toast.className = "toast"; }, 3400);
 }
-function formatDate(v) { const d = new Date(v); return isNaN(d) ? v : d.toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }); }
-function formatDateTime(v) { const d = new Date(v); return isNaN(d) ? v : d.toLocaleString("en-IN", { day:"2-digit", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" }); }
-function statusClass(s) { const k = toKey(s); if(k==="done") return "status-done"; if(k==="cancelled") return "status-cancelled"; return "status-pending"; }
-function toTitleCase(v) { const s = String(v||"").toLowerCase(); return s ? s[0].toUpperCase()+s.slice(1) : ""; }
-function toKey(v) { return String(v||"").trim().toLowerCase(); }
-function digitsOnly(v) { return String(v||"").replace(/\D+/g,""); }
-function escapeHtml(v) { return String(v||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
+
+function formatDate(v) {
+  const d = new Date(v);
+  return isNaN(d) ? v : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function formatDateTime(v) {
+  const d = new Date(v);
+  return isNaN(d) ? v : d.toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function statusClass(s) {
+  const k = toKey(s);
+  if (k === "done") return "status-done";
+  if (k === "cancelled") return "status-cancelled";
+  return "status-pending";
+}
+
+function toTitleCase(v) {
+  const s = String(v || "").toLowerCase();
+  return s ? s[0].toUpperCase() + s.slice(1) : "";
+}
+
+function toKey(v) { return String(v || "").trim().toLowerCase(); }
+function digitsOnly(v) { return String(v || "").replace(/\D+/g, ""); }
+function escapeHtml(v) { return String(v || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
 
 /* ── DEPARTMENT PILLS ── */
 function initDeptPills() {
   const select = document.getElementById("taskDepartment");
   const wrap = document.getElementById("deptPills");
   if (!select || !wrap) return;
-  const EMOJI = { 'sales':'💼', 'marketing':'📣', 'operations/management':'⚙️', 'operations':'⚙️', 'management':'🏗️' };
+  const EMOJI = { 'sales': '💼', 'marketing': '📣', 'operations/management': '⚙️', 'operations': '⚙️', 'management': '🏗️' };
   function build() {
     wrap.innerHTML = '';
     Array.from(select.options).filter(o => o.value).forEach(opt => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "dept-pill" + (select.value === opt.value ? " active" : "");
-      btn.textContent = (EMOJI[opt.value.toLowerCase()]||"🏢") + " " + opt.text;
+      btn.textContent = (EMOJI[opt.value.toLowerCase()] || "🏢") + " " + opt.text;
       btn.dataset.val = opt.value;
-      btn.addEventListener("click", () => { select.value = opt.value; select.dispatchEvent(new Event("change")); });
+      btn.addEventListener("click", () => {
+        select.value = opt.value;
+        select.dispatchEvent(new Event("change"));
+      });
       wrap.appendChild(btn);
     });
   }
   select.addEventListener("change", () => {
     wrap.querySelectorAll(".dept-pill").forEach(p => p.classList.toggle("active", p.dataset.val === select.value));
   });
-  new MutationObserver(build).observe(select, { childList:true });
+  new MutationObserver(build).observe(select, { childList: true });
   build();
+}
+
+/* ── CALENDAR STRIP (kept from original inline script) ── */
+function renderCalendar() {
+  const now = new Date();
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const monthEl = document.getElementById("calendarMonth");
+  const daysEl = document.getElementById("calendarDays");
+  if (!monthEl || !daysEl) return;
+  monthEl.textContent = MONTHS[now.getMonth()] + " " + now.getFullYear();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay());
+  daysEl.innerHTML = "";
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    const today = d.toDateString() === now.toDateString();
+    const el = document.createElement("div");
+    el.className = "cal-day" + (today ? " cal-today" : "");
+    el.innerHTML = `<span class="cal-day-name">${DAYS[i]}</span><span class="cal-day-num">${d.getDate()}</span>`;
+    daysEl.appendChild(el);
+  }
 }
