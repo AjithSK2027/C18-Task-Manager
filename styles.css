@@ -122,7 +122,10 @@ h1, h2, h3, h4 { font-family: var(--font-heading); font-weight: 800; letter-spac
 .task-list-view { display:flex; flex-direction:column; gap:24px; }
 .task-group { background: var(--surface-glass); backdrop-filter:blur(14px); border:1px solid rgba(255,255,255,0.45); border-radius: var(--radius-lg); padding:16px; box-shadow: var(--shadow-card); }
 .task-group-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
-.task-group-header h3 { font-family: var(--font-accent); font-size:1.2rem; }
+.task-group-header h3 {
+  font-family: var(--font-heading);       /* was var(--font-accent) */
+  font-size: 1.2rem;
+}
 .task-group-count { font-size:0.82rem; color: var(--ink-soft); font-weight:600; }
 .task-rows { display:flex; flex-direction:column; gap:6px; }
 .task-row {
