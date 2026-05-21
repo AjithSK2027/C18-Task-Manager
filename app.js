@@ -1,3 +1,6 @@
+/* ========================================================
+   C18 Task Workspace — Final Clean App Logic
+   ======================================================== */
 const API_BASE = "https://script.google.com/macros/s/AKfycbz9sCf54W8rjASthCcVDx7nAHbd4_iHB2VoyrPhADEEynN3weugEVU5IECNi0i4LAh_/exec";
 const STATUS_VALUES = ["Pending", "Done", "Cancelled"];
 
@@ -5,8 +8,7 @@ const state = {
   bootstrap: null,
   user: null,
   tasks: [],
-  activeCommentTaskId: null,
-  taskDraftCounter: 0,
+  activeCommentTaskId: null
 };
 
 const els = {};
@@ -25,35 +27,28 @@ function captureElements() {
   els.pinInput = document.getElementById("pinInput");
   els.loginBtn = document.getElementById("loginBtn");
   els.loginHelp = document.getElementById("loginHelp");
-
   els.sessionMeta = document.getElementById("sessionMeta");
   els.refreshBtn = document.getElementById("refreshBtn");
   els.openCreateBtn = document.getElementById("openCreateBtn");
   els.openTeamWhatsAppBtn = document.getElementById("openTeamWhatsAppBtn");
   els.sendEodBtn = document.getElementById("sendEodBtn");
   els.logoutBtn = document.getElementById("logoutBtn");
-
   els.propertyFilter = document.getElementById("propertyFilter");
   els.departmentFilter = document.getElementById("departmentFilter");
   els.statusFilter = document.getElementById("statusFilter");
   els.summaryStrip = document.getElementById("summaryStrip");
   els.taskTableWrap = document.getElementById("taskTableWrap");
-
   els.createTaskModal = document.getElementById("createTaskModal");
   els.createTaskForm = document.getElementById("createTaskForm");
-  els.taskProperty = document.getElementById("taskProperty");
   els.taskDepartment = document.getElementById("taskDepartment");
   els.taskAssignee = document.getElementById("taskAssignee");
   els.taskItemsList = document.getElementById("taskItemsList");
-  els.addTaskItemBtn = document.getElementById("addTaskItemBtn");
   els.cancelCreateBtn = document.getElementById("cancelCreateBtn");
-
   els.commentModal = document.getElementById("commentModal");
   els.commentHistory = document.getElementById("commentHistory");
   els.commentInput = document.getElementById("commentInput");
   els.cancelCommentBtn = document.getElementById("cancelCommentBtn");
   els.saveCommentBtn = document.getElementById("saveCommentBtn");
-
   els.toast = document.getElementById("toast");
 }
 
@@ -63,42 +58,26 @@ function bindEvents() {
   els.refreshBtn.addEventListener("click", refreshTasks);
   els.openTeamWhatsAppBtn.addEventListener("click", onOpenTeamWhatsApp);
   els.sendEodBtn.addEventListener("click", onSendEod);
-
   els.propertyFilter.addEventListener("change", renderTasksTable);
   els.departmentFilter.addEventListener("change", renderTasksTable);
   els.statusFilter.addEventListener("change", renderTasksTable);
-
   els.openCreateBtn.addEventListener("click", openCreateTaskModal);
   els.cancelCreateBtn.addEventListener("click", closeCreateTaskModal);
   els.createTaskForm.addEventListener("submit", onCreateTaskSubmit);
-  els.createTaskForm.addEventListener("click", onCreateTaskFormClick);
   els.taskDepartment.addEventListener("change", syncAssigneeOptions);
-  els.addTaskItemBtn.addEventListener("click", () => addTaskItemRow());
-
   els.taskTableWrap.addEventListener("change", onTableActionChange);
   els.taskTableWrap.addEventListener("click", onTableActionClick);
-
   els.cancelCommentBtn.addEventListener("click", closeCommentModal);
   els.saveCommentBtn.addEventListener("click", onSaveComment);
-
-  els.createTaskModal.addEventListener("click", (event) => {
-    if (event.target === els.createTaskModal) closeCreateTaskModal();
-  });
-  els.commentModal.addEventListener("click", (event) => {
-    if (event.target === els.commentModal) closeCommentModal();
-  });
+  els.createTaskModal.addEventListener("click", (e) => { if (e.target === els.createTaskModal) closeCreateTaskModal(); });
+  els.commentModal.addEventListener("click", (e) => { if (e.target === els.commentModal) closeCommentModal(); });
 }
 
 async function initializeApp() {
-  els.loginView.hidden = false;
-  els.loginView.style.display = "grid";
-  els.appView.hidden = true;
-  els.appView.style.display = "none";
-  els.createTaskModal.hidden = true;
-  els.createTaskModal.style.display = "none";
-  els.commentModal.hidden = true;
-  els.commentModal.style.display = "none";
-
+  els.loginView.hidden = false; els.loginView.style.display = "grid";
+  els.appView.hidden = true; els.appView.style.display = "none";
+  els.createTaskModal.hidden = true; els.createTaskModal.style.display = "none";
+  els.commentModal.hidden = true; els.commentModal.style.display = "none";
   if (!isApiConfigured()) {
     els.userSelect.innerHTML = '<option value="">Set API_BASE first</option>';
     els.userSelect.disabled = true;
@@ -107,129 +86,81 @@ async function initializeApp() {
     els.loginHelp.textContent = "Set API_BASE in app.js";
     return;
   }
-
   try {
-    const response = await apiGet("bootstrap");
-    if (!response.success) throw new Error(response.error || "Could not load initial data");
-    state.bootstrap = response;
+    const res = await apiGet("bootstrap");
+    if (!res.success) throw new Error(res.error || "Failed to load data");
+    state.bootstrap = res;
     populateLoginUsers();
     populateFilterOptions();
-    populateCreateTaskOptions();
-  } catch (error) {
-    showToast(error.message || "Failed to initialize app", true);
-  }
+  } catch (err) { showToast(err.message, true); }
 }
 
-function isApiConfigured() {
-  return API_BASE && API_BASE.startsWith("https://script.google.com/macros/s/") && API_BASE.endsWith("/exec");
-}
+function isApiConfigured() { return API_BASE && API_BASE.startsWith("https://script.google.com/macros/s/") && API_BASE.endsWith("/exec"); }
 
 /* ── LOGIN / LOGOUT ── */
 async function onLogin() {
   const userId = (els.userSelect.value || "").trim();
   const pin = (els.pinInput.value || "").trim();
-  if (!userId) { showToast("Please choose a user", true); return; }
-
+  if (!userId) return showToast("Choose a user", true);
   try {
-    const response = await apiPost("login", { userId, pin });
-    if (!response.success) throw new Error(response.error || "Login failed");
-    state.user = response.user;
+    const res = await apiPost("login", { userId, pin });
+    if (!res.success) throw new Error(res.error || "Login failed");
+    state.user = res.user;
     state.tasks = [];
     state.activeCommentTaskId = null;
-
-    els.loginView.hidden = true;
-    els.loginView.style.display = "none";
-    els.appView.hidden = false;
-    els.appView.style.display = "grid";
-
-    const role = toTitleCase(state.user.role);
-    const department = state.user.department || "General";
-    els.sessionMeta.textContent = `${state.user.name} | ${role} | ${department}`;
-
-    const canManage = canCreateTasks();
-    els.openCreateBtn.hidden = !canManage;
+    els.loginView.hidden = true; els.loginView.style.display = "none";
+    els.appView.hidden = false; els.appView.style.display = "grid";
+    els.sessionMeta.textContent = `${state.user.name} | ${toTitleCase(state.user.role)} | ${state.user.department || "General"}`;
+    els.openCreateBtn.hidden = !canCreateTasks();
     els.openTeamWhatsAppBtn.hidden = false;
     els.sendEodBtn.hidden = false;
     els.sendEodBtn.disabled = false;
     els.sendEodBtn.textContent = "Send EOD to WhatsApp Group";
-
     await refreshTasks();
     showToast(`Welcome, ${state.user.name}`);
-  } catch (error) {
-    showToast(error.message || "Login error", true);
-  }
+  } catch (err) { showToast(err.message, true); }
 }
 
 function onLogout() {
-  state.user = null;
-  state.tasks = [];
-  state.activeCommentTaskId = null;
+  state.user = null; state.tasks = [];
   els.pinInput.value = "";
-  els.statusFilter.value = "";
-  els.departmentFilter.value = "";
-  els.propertyFilter.value = "";
-  els.appView.hidden = true;
-  els.appView.style.display = "none";
-  els.loginView.hidden = false;
-  els.loginView.style.display = "grid";
-  els.createTaskModal.hidden = true;
-  els.createTaskModal.style.display = "none";
-  els.commentModal.hidden = true;
-  els.commentModal.style.display = "none";
-  els.sendEodBtn.textContent = "Send EOD to WhatsApp Group";
-  els.summaryStrip.innerHTML = "";
-  els.taskTableWrap.innerHTML = "";
+  els.statusFilter.value = els.departmentFilter.value = els.propertyFilter.value = "";
+  els.appView.hidden = true; els.appView.style.display = "none";
+  els.loginView.hidden = false; els.loginView.style.display = "grid";
+  els.createTaskModal.hidden = true; els.commentModal.hidden = true;
+  els.summaryStrip.innerHTML = els.taskTableWrap.innerHTML = "";
 }
 
 async function refreshTasks() {
   if (!state.user) return;
   try {
-    const response = await apiGet("getTasks", { userId: state.user.id });
-    if (!response.success) throw new Error(response.error || "Failed to fetch tasks");
-    state.tasks = Array.isArray(response.tasks) ? response.tasks : [];
-    renderSummary();
-    renderTasksTable();
-  } catch (error) {
-    showToast(error.message || "Could not refresh tasks", true);
-  }
+    const res = await apiGet("getTasks", { userId: state.user.id });
+    if (!res.success) throw new Error(res.error);
+    state.tasks = Array.isArray(res.tasks) ? res.tasks : [];
+    renderSummary(); renderTasksTable();
+  } catch (err) { showToast(err.message, true); }
 }
 
 function populateLoginUsers() {
   const users = getActiveUsers();
-  const options = ['<option value="">Select user</option>'];
-  users.sort((a,b) => a.name.localeCompare(b.name)).forEach(user => {
-    const role = toTitleCase(user.role);
-    const dept = user.department || "General";
-    options.push(`<option value="${escapeHtml(user.id)}">${escapeHtml(user.name)} - ${escapeHtml(role)} (${escapeHtml(dept)})</option>`);
+  let opts = '<option value="">Select user</option>';
+  users.sort((a,b) => a.name.localeCompare(b.name)).forEach(u => {
+    opts += `<option value="${escapeHtml(u.id)}">${escapeHtml(u.name)} - ${toTitleCase(u.role)} (${escapeHtml(u.department||"General")})</option>`;
   });
-  els.userSelect.innerHTML = options.join("");
+  els.userSelect.innerHTML = opts;
 }
 
 function populateFilterOptions() {
-  const properties = state.bootstrap.properties || [];
-  const departments = state.bootstrap.departments || [];
   els.propertyFilter.innerHTML = '<option value="">All Properties</option>';
-  properties.forEach(p => els.propertyFilter.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`));
+  (state.bootstrap.properties||[]).forEach(p => els.propertyFilter.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`));
   els.departmentFilter.innerHTML = '<option value="">All Departments</option>';
-  departments.forEach(d => els.departmentFilter.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`));
+  (state.bootstrap.departments||[]).forEach(d => els.departmentFilter.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`));
 }
 
-function populateCreateTaskOptions() {
-  const properties = state.bootstrap.properties || [];
-  const departments = state.bootstrap.departments || [];
-  els.taskProperty.innerHTML = "";
-  properties.forEach(p => els.taskProperty.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`));
-  els.taskDepartment.innerHTML = "";
-  departments.forEach(d => els.taskDepartment.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`));
-  syncAssigneeOptions();
-  addTaskItemRow();
-}
-
+/* ── HELPERS ── */
 function getActiveUsers() {
-  const users = state.bootstrap && Array.isArray(state.bootstrap.users) ? state.bootstrap.users : [];
-  return users.filter(u => Boolean(u.isActive));
+  return (state.bootstrap?.users||[]).filter(u => u.isActive);
 }
-
 function canCreateTasks() {
   return state.user && (state.user.role === "head" || state.user.role === "admin");
 }
@@ -239,14 +170,63 @@ function canUpdateStatus(task) {
   if (state.user.role === "head") return toKey(state.user.department) === toKey(task.department);
   return state.user.id === task.assignedToUserId;
 }
-function canCommentOnTask(task) {
-  return canUpdateStatus(task);
-}
+function canCommentOnTask(task) { return canUpdateStatus(task); }
 
-/* ── CREATE TASK MODAL (original form, fixed freeze) ── */
+/* ── DUMP TASKS MODAL ── */
 function openCreateTaskModal() {
-  if (!canCreateTasks()) { showToast("Only heads can create tasks", true); return; }
-  resetCreateTaskForm();
+  if (!canCreateTasks()) return showToast("Only heads can create tasks", true);
+
+  // Set up department / assignee and the textarea
+  els.createTaskForm.innerHTML = `
+    <div class="form-field">
+      <label>Department</label>
+      <div class="dept-pills-wrap" id="deptPills"></div>
+      <select id="taskDepartment" name="taskDepartment" required class="dept-select-hidden"></select>
+    </div>
+    <div class="form-field">
+      <label for="taskAssignee">Assign To</label>
+      <select id="taskAssignee" name="taskAssignee" required></select>
+    </div>
+    <div class="form-field">
+      <label for="dumpTextarea">Paste / Type Tasks</label>
+      <textarea id="dumpTextarea" rows="8" placeholder="*OPERATION*
+⛺Camp ALPHA ⛺
+1. Collect balance payment
+2. Pay all outstanding bills
+
+Good earth 🌎
+1. Garden lamps wire repair
+..."></textarea>
+      <div class="dump-hint">Use numbers (1. 2.) to separate tasks. Empty line = new property.</div>
+    </div>
+    <button type="button" id="parseDumpBtn" class="btn btn-secondary btn-full">🔍 Parse & Preview</button>
+    <div id="dumpPreview" class="task-items-box" style="display:none;">
+      <div class="task-items-head">
+        <h4>Tasks to create (<span id="dumpCount">0</span>)</h4>
+        <button type="button" class="btn btn-ghost btn-sm" id="clearDumpBtn">Clear</button>
+      </div>
+      <div id="taskItemsList" class="task-items-list"></div>
+    </div>
+    <div class="modal-actions">
+      <button type="submit" class="btn btn-primary btn-full btn-lg">Create All Tasks</button>
+    </div>
+  `;
+
+  // Populate department dropdown
+  const departments = state.bootstrap.departments || [];
+  els.taskDepartment.innerHTML = "";
+  departments.forEach(d => els.taskDepartment.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`));
+  syncAssigneeOptions();
+  initDeptPills();
+
+  // Bind new buttons
+  document.getElementById("parseDumpBtn").addEventListener("click", onParseDump);
+  document.getElementById("clearDumpBtn").addEventListener("click", () => {
+    document.getElementById("dumpPreview").style.display = "none";
+    els.taskItemsList.innerHTML = "";
+  });
+
+  els.taskDepartment.addEventListener("change", syncAssigneeOptions);
   els.createTaskModal.hidden = false;
   els.createTaskModal.style.display = "grid";
 }
@@ -254,51 +234,6 @@ function openCreateTaskModal() {
 function closeCreateTaskModal() {
   els.createTaskModal.hidden = true;
   els.createTaskModal.style.display = "none";
-}
-
-function resetCreateTaskForm() {
-  els.createTaskForm.reset();
-  syncAssigneeOptions();
-  state.taskDraftCounter = 0;
-  els.taskItemsList.innerHTML = "";
-  addTaskItemRow();
-}
-
-function addTaskItemRow(prefill = {}) {
-  state.taskDraftCounter++;
-  const itemId = `task-item-${Date.now()}-${state.taskDraftCounter}`;
-  const row = document.createElement("div");
-  row.className = "task-item-row";
-  row.dataset.itemId = itemId;
-  row.innerHTML = `
-    <div class="task-item-top">
-      <span class="task-item-label">Task Item</span>
-      <button type="button" class="btn btn-ghost task-item-remove">Remove</button>
-    </div>
-    <div class="task-item-grid">
-      <input type="text" class="task-item-title" placeholder="Task title" value="${escapeHtml(prefill.title||'')}">
-      <input type="date" class="task-item-due" value="${escapeHtml(prefill.dueDate||'')}">
-      <textarea class="task-item-notes" rows="2" placeholder="Notes">${escapeHtml(prefill.notes||'')}</textarea>
-    </div>
-  `;
-  els.taskItemsList.appendChild(row);
-  refreshTaskItemLabels();
-}
-
-function onCreateTaskFormClick(event) {
-  if (!event.target.classList.contains("task-item-remove")) return;
-  const row = event.target.closest(".task-item-row");
-  if (row) row.remove();
-  if (!els.taskItemsList.children.length) addTaskItemRow();
-  else refreshTaskItemLabels();
-}
-
-function refreshTaskItemLabels() {
-  const rows = Array.from(els.taskItemsList.querySelectorAll(".task-item-row"));
-  rows.forEach((row, idx) => {
-    row.querySelector(".task-item-label").textContent = `Task ${idx+1}`;
-    row.querySelector(".task-item-remove").disabled = rows.length === 1;
-  });
 }
 
 function syncAssigneeOptions() {
@@ -314,69 +249,126 @@ function syncAssigneeOptions() {
   }
 }
 
-function readTaskItemsFromForm() {
-  const rows = Array.from(els.taskItemsList.querySelectorAll(".task-item-row"));
-  const items = [];
-  rows.forEach(row => {
-    const title = (row.querySelector(".task-item-title")?.value || "").trim();
-    if (!title) throw new Error("Each task needs a title");
-    items.push({
-      title,
-      dueDate: (row.querySelector(".task-item-due")?.value || "").trim(),
-      notes: (row.querySelector(".task-item-notes")?.value || "").trim()
+function onParseDump() {
+  const raw = document.getElementById("dumpTextarea").value.trim();
+  if (!raw) return showToast("Paste or type some tasks first", true);
+  
+  const tasks = parseDump(raw);
+  if (tasks.length === 0) return showToast("No tasks found. Use 1. 2. format.", true);
+
+  els.taskItemsList.innerHTML = "";
+  tasks.forEach((t, i) => {
+    const row = document.createElement("div");
+    row.className = "task-item-row";
+    row.innerHTML = `
+      <div class="task-item-top">
+        <span class="task-item-label">${escapeHtml(t.property || "Task")}</span>
+        <button type="button" class="btn btn-ghost task-item-remove">✕</button>
+      </div>
+      <input type="text" class="task-item-title" value="${escapeHtml(t.title)}" placeholder="Title">
+      <input type="date" class="task-item-due" value="${escapeHtml(t.dueDate||"")}">
+    `;
+    row.querySelector(".task-item-remove").addEventListener("click", () => {
+      row.remove();
+      if (els.taskItemsList.children.length === 0) {
+        document.getElementById("dumpPreview").style.display = "none";
+      }
+      document.getElementById("dumpCount").textContent = els.taskItemsList.children.length;
     });
+    els.taskItemsList.appendChild(row);
   });
-  if (items.length === 0) throw new Error("Add at least one task");
-  return items;
+
+  document.getElementById("dumpCount").textContent = tasks.length;
+  document.getElementById("dumpPreview").style.display = "block";
+}
+
+function parseDump(text) {
+  const lines = text.split("\n");
+  const tasks = [];
+  let currentProperty = "";
+
+  const isPropertyLine = (line) => {
+    // line with emoji, or ALL CAPS SHORT, or starts with *
+    return /[\u{1F300}-\u{1FAFF}]/u.test(line) || 
+           /^[\*]?[A-Z\s]{3,}[\*]?$/.test(line) ||
+           /^[A-Z][a-z]+ [a-z]+/.test(line);
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      // empty line resets property? No, keep it.
+      continue;
+    }
+
+    if (isPropertyLine(trimmed)) {
+      currentProperty = trimmed.replace(/^\*+|\*+$/g, "").replace(/[\u{1F300}-\u{1FAFF}]/g, "").trim();
+      if (!currentProperty) currentProperty = trimmed;
+      continue;
+    }
+
+    const match = trimmed.match(/^(\d{1,3})[\.\)]\s*(.*)/);
+    if (match) {
+      const title = match[2].trim();
+      if (title) {
+        tasks.push({
+          title,
+          property: currentProperty || "General",
+          dueDate: "",
+          notes: ""
+        });
+      }
+    }
+  }
+  return tasks;
 }
 
 async function onCreateTaskSubmit(event) {
   event.preventDefault();
   if (!state.user) return;
 
-  // FIX: re-enable assignee in case it was disabled
+  // ensure assignee is enabled
   els.taskAssignee.disabled = false;
 
-  let taskItems;
-  try {
-    taskItems = readTaskItemsFromForm();
-  } catch (error) {
-    showToast(error.message, true);
-    return;
-  }
+  const assigneeId = (els.taskAssignee.value || "").trim();
+  if (!assigneeId) return showToast("Select an assignee", true);
+
+  const rows = Array.from(els.taskItemsList.querySelectorAll(".task-item-row"));
+  if (rows.length === 0) return showToast("No tasks to create", true);
+
+  const taskItems = rows.map(row => ({
+    title: row.querySelector(".task-item-title")?.value.trim() || "",
+    dueDate: row.querySelector(".task-item-due")?.value.trim() || "",
+    notes: "",
+    property: row.querySelector(".task-item-label")?.textContent.trim() || ""
+  })).filter(t => t.title);
+
+  if (!taskItems.length) return showToast("Each task needs a title", true);
 
   const payload = {
     actorUserId: state.user.id,
-    property: (els.taskProperty.value || "").trim(),
-    department: (els.taskDepartment.value || "").trim(),
-    assignedToUserId: (els.taskAssignee.value || "").trim(),
+    department: els.taskDepartment.value,
+    assignedToUserId: assigneeId,
     tasksJson: JSON.stringify(taskItems)
   };
 
-  if (!payload.assignedToUserId) {
-    showToast("Choose an assignee", true);
-    return;
-  }
-
   try {
-    const response = await apiPost("createTaskBatch", payload);
-    if (!response.success) throw new Error(response.error || "Could not create tasks");
+    const res = await apiPost("createTaskBatch", payload);
+    if (!res.success) throw new Error(res.error);
     closeCreateTaskModal();
     await refreshTasks();
-    showToast(`Created ${response.createdCount || taskItems.length} task(s)`);
-  } catch (error) {
-    showToast(error.message || "Task creation failed", true);
-  }
+    showToast(`Created ${taskItems.length} task(s)`);
+  } catch (err) { showToast(err.message, true); }
 }
 
-/* ── TASK LIST (property-grouped checklist) ── */
+/* ── TASK LIST (grouped checklist) ── */
 function renderSummary() {
   const visible = getFilteredTasks();
   els.summaryStrip.innerHTML = [
     { label:"Visible", value: visible.length },
     { label:"Pending", value: visible.filter(t=>t.status==="Pending").length },
     { label:"Done", value: visible.filter(t=>t.status==="Done").length },
-    { label:"Cancelled", value: visible.filter(t=>t.status==="Cancelled").length },
+    { label:"Cancelled", value: visible.filter(t=>t.status==="Cancelled").length }
   ].map(c => `<article class="summary-card"><span class="muted">${c.label}</span><strong>${c.value}</strong></article>`).join("");
 }
 
@@ -388,24 +380,23 @@ function renderTasksTable() {
   }
 
   const grouped = {};
-  tasks.forEach(task => {
-    const prop = task.property || "Uncategorized";
+  tasks.forEach(t => {
+    const prop = t.property || "Uncategorized";
     if (!grouped[prop]) grouped[prop] = [];
-    grouped[prop].push(task);
+    grouped[prop].push(t);
   });
 
   let html = '<div class="task-list-view">';
-  Object.keys(grouped).forEach(prop => {
-    const groupTasks = grouped[prop];
-    const doneCount = groupTasks.filter(t => t.status === "Done").length;
+  for (const prop in grouped) {
+    const list = grouped[prop];
+    const done = list.filter(t => t.status === "Done").length;
     html += `<div class="task-group">
       <div class="task-group-header">
         <h3>${escapeHtml(prop)}</h3>
-        <span class="task-group-count">${doneCount}/${groupTasks.length} done</span>
+        <span class="task-group-count">${done}/${list.length} done</span>
       </div>
       <div class="task-rows">`;
-
-    groupTasks.forEach((task, idx) => {
+    list.forEach((task, idx) => {
       const canUpdate = canUpdateStatus(task);
       const statusControl = canUpdate
         ? `<select class="status-select" data-action="status" data-task-id="${escapeHtml(task.id)}">
@@ -417,34 +408,30 @@ function renderTasksTable() {
         <span class="task-row-num">${idx+1}</span>
         <div class="task-row-content">
           <div class="task-row-title">${escapeHtml(task.title)}</div>
-          <div class="task-row-meta">
-            ${escapeHtml(task.assignedToName||'')} · ${escapeHtml(formatDate(task.dueDate))}
-          </div>
+          <div class="task-row-meta">${escapeHtml(task.assignedToName||"")} · ${escapeHtml(formatDate(task.dueDate))}</div>
         </div>
         ${statusControl}
         <button class="btn btn-ghost task-row-comment" data-action="comment" data-task-id="${escapeHtml(task.id)}">💬</button>
       </div>`;
     });
-    html += '</div></div>';
-  });
+    html += `</div></div>`;
+  }
   html += '</div>';
   els.taskTableWrap.innerHTML = html;
 }
 
 function getFilteredTasks() {
-  const property = (els.propertyFilter.value || "").trim();
-  const department = (els.departmentFilter.value || "").trim();
+  const prop = (els.propertyFilter.value || "").trim();
+  const dept = (els.departmentFilter.value || "").trim();
   const status = (els.statusFilter.value || "").trim();
-  return state.tasks.filter(task => {
-    if (property && toKey(task.property) !== toKey(property)) return false;
-    if (department && toKey(task.department) !== toKey(department)) return false;
-    if (status && toKey(task.status) !== toKey(status)) return false;
+  return state.tasks.filter(t => {
+    if (prop && toKey(t.property) !== toKey(prop)) return false;
+    if (dept && toKey(t.department) !== toKey(dept)) return false;
+    if (status && toKey(t.status) !== toKey(status)) return false;
     return true;
   }).sort((a,b) => {
     const order = { Pending:1, Done:2, Cancelled:3 };
-    return (order[a.status]||99) - (order[b.status]||99) || 
-           (a.dueDate||"").localeCompare(b.dueDate||"") ||
-           (b.createdAt||"").localeCompare(a.createdAt||"");
+    return (order[a.status]||99) - (order[b.status]||99) || (a.dueDate||"").localeCompare(b.dueDate||"") || (b.createdAt||"").localeCompare(a.createdAt||"");
   });
 }
 
@@ -456,11 +443,11 @@ async function onTableActionChange(event) {
   const status = target.value;
   if (!taskId || !STATUS_VALUES.includes(status)) return;
   try {
-    const resp = await apiPost("updateTaskStatus", { actorUserId: state.user.id, taskId, status });
-    if (!resp.success) throw new Error(resp.error || "Update failed");
+    const res = await apiPost("updateTaskStatus", { actorUserId: state.user.id, taskId, status });
+    if (!res.success) throw new Error(res.error);
     await refreshTasks();
     showToast(`Status → ${status}`);
-  } catch(e) { showToast(e.message, true); }
+  } catch (err) { showToast(err.message, true); }
 }
 
 function onTableActionClick(event) {
@@ -474,34 +461,30 @@ function openCommentModal(taskId) {
   state.activeCommentTaskId = taskId;
   els.commentInput.value = "";
   renderCommentHistory(task);
-  els.commentModal.hidden = false;
-  els.commentModal.style.display = "grid";
+  els.commentModal.hidden = false; els.commentModal.style.display = "grid";
 }
 function closeCommentModal() {
   state.activeCommentTaskId = null;
-  els.commentModal.hidden = true;
-  els.commentModal.style.display = "none";
+  els.commentModal.hidden = true; els.commentModal.style.display = "none";
 }
 function renderCommentHistory(task) {
   const comments = Array.isArray(task.comments) ? task.comments : [];
   let html = task.notes ? `<div class="comment-item"><small>Note</small><div>${escapeHtml(task.notes)}</div></div>` : "";
-  comments.forEach(c => {
-    html += `<div class="comment-item"><small>${escapeHtml(c.authorName||"")} · ${formatDateTime(c.createdAt)}</small><div>${escapeHtml(c.comment)}</div></div>`;
-  });
+  comments.forEach(c => html += `<div class="comment-item"><small>${escapeHtml(c.authorName||"")} · ${formatDateTime(c.createdAt)}</small><div>${escapeHtml(c.comment)}</div></div>`);
   els.commentHistory.innerHTML = html || '<p class="muted">No comments yet.</p>';
 }
 async function onSaveComment() {
   const taskId = state.activeCommentTaskId;
-  const comment = (els.commentInput.value || "").trim();
-  if (!taskId || !comment) { showToast("Comment cannot be empty", true); return; }
+  const comment = els.commentInput.value.trim();
+  if (!taskId || !comment) return showToast("Comment cannot be empty", true);
   try {
-    const resp = await apiPost("addComment", { actorUserId: state.user.id, taskId, comment });
-    if (!resp.success) throw new Error(resp.error || "Save failed");
+    const res = await apiPost("addComment", { actorUserId: state.user.id, taskId, comment });
+    if (!res.success) throw new Error(res.error);
     await refreshTasks();
     renderCommentHistory(state.tasks.find(t => t.id === taskId));
     els.commentInput.value = "";
     showToast("Comment added");
-  } catch(e) { showToast(e.message, true); }
+  } catch (err) { showToast(err.message, true); }
 }
 
 /* ── WHATSAPP & EOD ── */
@@ -520,10 +503,10 @@ function getTeamWhatsAppUrl() {
 async function onSendEod() {
   if (!state.user) return;
   try {
-    const resp = await apiPost("sendEodReportNow", { actorUserId: state.user.id });
-    if (!resp.success) throw new Error(resp.error || "EOD failed");
+    const res = await apiPost("sendEodReportNow", { actorUserId: state.user.id });
+    if (!res.success) throw new Error(res.error);
     showToast("EOD report sent");
-  } catch(e) { showToast(e.message, true); }
+  } catch (err) { showToast(err.message, true); }
 }
 
 /* ── API HELPERS ── */
@@ -547,15 +530,15 @@ function showToast(msg, error=false) {
   clearTimeout(showToast.timer);
   showToast.timer = setTimeout(() => els.toast.className = "toast", 3400);
 }
-function formatDate(v) { const d = new Date(v); return isNaN(d) ? v : d.toLocaleDateString("en-IN", {day:"2-digit", month:"short", year:"numeric"}); }
-function formatDateTime(v) { const d = new Date(v); return isNaN(d) ? v : d.toLocaleString("en-IN", {day:"2-digit", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit"}); }
+function formatDate(v) { const d = new Date(v); return isNaN(d) ? v : d.toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }); }
+function formatDateTime(v) { const d = new Date(v); return isNaN(d) ? v : d.toLocaleString("en-IN", { day:"2-digit", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" }); }
 function statusClass(s) { const k = toKey(s); if(k==="done") return "status-done"; if(k==="cancelled") return "status-cancelled"; return "status-pending"; }
 function toTitleCase(v) { const s = String(v||"").toLowerCase(); return s ? s[0].toUpperCase()+s.slice(1) : ""; }
 function toKey(v) { return String(v||"").trim().toLowerCase(); }
 function digitsOnly(v) { return String(v||"").replace(/\D+/g,""); }
 function escapeHtml(v) { return String(v||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
 
-/* ── DEPARTMENT PILLS (init called from inline script) ── */
+/* ── DEPARTMENT PILLS ── */
 function initDeptPills() {
   const select = document.getElementById("taskDepartment");
   const wrap = document.getElementById("deptPills");
@@ -563,21 +546,18 @@ function initDeptPills() {
   const EMOJI = { 'sales':'💼', 'marketing':'📣', 'operations/management':'⚙️', 'operations':'⚙️', 'management':'🏗️' };
   function build() {
     wrap.innerHTML = '';
-    const opts = Array.from(select.options).filter(o=>o.value);
-    if (!opts.length) return;
-    if (!select.value || !opts.find(o=>o.value===select.value)) select.value = opts[0].value;
-    opts.forEach(opt => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'dept-pill' + (select.value===opt.value?' active':'');
-      btn.textContent = (EMOJI[opt.value.toLowerCase()]||'🏢') + ' ' + opt.text;
+    Array.from(select.options).filter(o => o.value).forEach(opt => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "dept-pill" + (select.value === opt.value ? " active" : "");
+      btn.textContent = (EMOJI[opt.value.toLowerCase()]||"🏢") + " " + opt.text;
       btn.dataset.val = opt.value;
-      btn.addEventListener('click', () => { select.value = opt.value; select.dispatchEvent(new Event('change')); });
+      btn.addEventListener("click", () => { select.value = opt.value; select.dispatchEvent(new Event("change")); });
       wrap.appendChild(btn);
     });
   }
-  select.addEventListener('change', () => {
-    wrap.querySelectorAll('.dept-pill').forEach(p => p.classList.toggle('active', p.dataset.val === select.value));
+  select.addEventListener("change", () => {
+    wrap.querySelectorAll(".dept-pill").forEach(p => p.classList.toggle("active", p.dataset.val === select.value));
   });
   new MutationObserver(build).observe(select, { childList:true });
   build();
