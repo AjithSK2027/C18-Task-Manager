@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -6,12 +6,12 @@
   <title>C18 Task Workspace</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-  <div class="background-layer"></div>
 
+  <!-- ─── LOGIN ─────────────────────────────────────────── -->
   <section id="loginView" class="view view-login">
     <div class="login-card">
       <div class="brand-hero">
@@ -23,108 +23,269 @@
       </div>
       <p class="supporting">Heads create and assign tasks. Employees update status and notes.</p>
 
-      <label for="userSelect">User</label>
+      <label for="userSelect">Who are you?</label>
       <select id="userSelect"></select>
 
       <label for="pinInput">PIN</label>
       <input id="pinInput" type="password" placeholder="Enter your PIN">
 
-      <button id="loginBtn" class="btn btn-primary">Login</button>
-      <p id="loginHelp" class="muted">Initial demo PINs are managed in the <code>employees</code> sheet.</p>
+      <button id="loginBtn" class="btn btn-primary">Sign In →</button>
+      <p id="loginHelp" class="muted">Initial PINs are managed in the <code>employees</code> sheet.</p>
     </div>
   </section>
 
-  <section id="appView" class="view" hidden style="display:none;">
+  <!-- ─── APP ───────────────────────────────────────────── -->
+  <section id="appView" class="view app-layout" hidden style="display:none;">
+
+    <!-- Sidebar (desktop) -->
     <aside class="sidebar">
       <div class="sidebar-brand">
         <img src="https://i.ibb.co/ZzRKznNC/logo.png" alt="C18 Logo" class="brand-logo-small">
         <div>
           <p class="eyebrow">C18 Company</p>
-          <h2>Task Console</h2>
+          <h2>Tasks</h2>
         </div>
-        <p id="sessionMeta" class="muted"></p>
       </div>
 
-      <div class="nav-block">
-        <button id="refreshBtn" class="btn btn-secondary btn-full">Refresh Tasks</button>
-        <button id="openCreateBtn" class="btn btn-primary btn-full">Create Task</button>
-        <button id="openTeamWhatsAppBtn" class="btn btn-secondary btn-full">Open Team WhatsApp</button>
-        <button id="sendEodBtn" class="btn btn-secondary btn-full">Send EOD to WhatsApp Group</button>
-        <p class="muted eod-caption">EOD goes to the company WhatsApp group.</p>
+      <p id="sessionMeta" class="session-meta muted"></p>
+
+      <nav class="sidebar-nav">
+        <span class="nav-item active">
+          <span class="nav-icon">📋</span> Task Board
+        </span>
+      </nav>
+
+      <div class="sidebar-actions">
+        <button id="refreshBtn"          class="btn btn-secondary btn-full">↻&ensp;Refresh Tasks</button>
+        <button id="openCreateBtn"       class="btn btn-primary   btn-full">+&ensp;Create Task</button>
+        <button id="openTeamWhatsAppBtn" class="btn btn-secondary btn-full">💬&ensp;Team WhatsApp</button>
+        <button id="sendEodBtn"          class="btn btn-secondary btn-full">📤&ensp;Send EOD</button>
+        <p class="muted eod-caption">Sends the end-of-day report to the company WhatsApp group.</p>
       </div>
 
-      <button id="logoutBtn" class="btn btn-ghost btn-full">Logout</button>
+      <button id="logoutBtn" class="btn btn-ghost btn-full">Sign Out</button>
     </aside>
 
+    <!-- Main workspace -->
     <main class="workspace">
       <header class="workspace-header">
-        <h1>Task Board</h1>
-        <p class="muted">Properties: Camp Alpha, Good Earth Swimming Pool Homestay</p>
+        <div>
+          <h1>Task Board</h1>
+          <p class="muted">Camp Alpha · Good Earth Swimming Pool Homestay</p>
+        </div>
       </header>
 
+      <!-- Calendar strip -->
+      <div class="calendar-strip-wrap">
+        <div class="calendar-month" id="calendarMonth">Loading…</div>
+        <div class="calendar-days"  id="calendarDays"></div>
+      </div>
+
+      <!-- Filters -->
       <section class="filters">
-        <select id="propertyFilter">
-          <option value="">All Properties</option>
-        </select>
-        <select id="departmentFilter">
-          <option value="">All Departments</option>
-        </select>
-        <select id="statusFilter">
-          <option value="">All Status</option>
-          <option value="Pending">Pending</option>
-          <option value="Done">Done</option>
-          <option value="Cancelled">Cancelled</option>
+        <select id="propertyFilter"   class="filter-pill"><option value="">📍 All Properties</option></select>
+        <select id="departmentFilter" class="filter-pill"><option value="">🏢 All Departments</option></select>
+        <select id="statusFilter"     class="filter-pill">
+          <option value="">● All Status</option>
+          <option value="Pending">⏳ Pending</option>
+          <option value="Done">✅ Done</option>
+          <option value="Cancelled">✕ Cancelled</option>
         </select>
       </section>
 
+      <!-- Summary cards -->
       <section id="summaryStrip" class="summary-strip"></section>
 
+      <!-- Task cards -->
       <section id="taskTableWrap" class="table-wrap"></section>
+
+      <!-- Spacer so content clears mobile bottom nav -->
+      <div class="mobile-nav-spacer"></div>
     </main>
+
+    <!-- Bottom nav (mobile only) -->
+    <nav class="bottom-nav">
+      <button class="bnav-item active">
+        <span>📋</span>
+        <span class="bnav-label">Tasks</span>
+      </button>
+      <button class="bnav-item" id="openTeamWhatsAppBtn-m">
+        <span>💬</span>
+        <span class="bnav-label">Chat</span>
+      </button>
+      <button class="bnav-fab" id="openCreateBtn-m" aria-label="Create task">+</button>
+      <button class="bnav-item" id="sendEodBtn-m">
+        <span>📤</span>
+        <span class="bnav-label">EOD</span>
+      </button>
+      <button class="bnav-item" id="logoutBtn-m">
+        <span>🚪</span>
+        <span class="bnav-label">Exit</span>
+      </button>
+    </nav>
+
   </section>
 
+  <!-- ─── CREATE TASK MODAL ──────────────────────────────── -->
   <section id="createTaskModal" class="modal" hidden style="display:none;">
     <div class="modal-card">
-      <h3>Create Tasks</h3>
+      <div class="modal-top">
+        <h3>Create Task</h3>
+        <button type="button" id="cancelCreateBtn" class="modal-close-btn">✕</button>
+      </div>
+
       <form id="createTaskForm">
-        <label for="taskProperty">Property</label>
-        <select id="taskProperty" name="taskProperty" required></select>
 
-        <label for="taskDepartment">Department</label>
-        <select id="taskDepartment" name="taskDepartment" required></select>
+        <div class="form-field">
+          <label for="taskProperty">📍 Location / Property</label>
+          <select id="taskProperty" name="taskProperty" required></select>
+        </div>
 
-        <label for="taskAssignee">Assign To</label>
-        <select id="taskAssignee" name="taskAssignee" required></select>
+        <div class="form-field">
+          <label>Department</label>
+          <!-- Pill buttons (synced with hidden select via inline JS) -->
+          <div class="dept-pills-wrap" id="deptPills"></div>
+          <select id="taskDepartment" name="taskDepartment" required class="dept-select-hidden"></select>
+        </div>
 
-        <section class="task-items-box">
+        <div class="form-field">
+          <label for="taskAssignee">👤 Assign To</label>
+          <select id="taskAssignee" name="taskAssignee" required></select>
+        </div>
+
+        <div class="task-items-box">
           <div class="task-items-head">
             <h4>Task Items</h4>
-            <button type="button" id="addTaskItemBtn" class="btn btn-ghost">+ Add Task</button>
+            <button type="button" id="addTaskItemBtn" class="btn btn-ghost btn-sm">+ Add Item</button>
           </div>
           <div id="taskItemsList" class="task-items-list"></div>
-        </section>
+        </div>
 
         <div class="modal-actions">
-          <button type="button" id="cancelCreateBtn" class="btn btn-ghost">Cancel</button>
-          <button type="submit" class="btn btn-primary">Create Tasks</button>
+          <button type="submit" class="btn btn-primary btn-full btn-lg">Create Task</button>
         </div>
+
       </form>
     </div>
   </section>
 
+  <!-- ─── COMMENT MODAL ─────────────────────────────────── -->
   <section id="commentModal" class="modal" hidden style="display:none;">
     <div class="modal-card">
-      <h3>Task Notes and Comments</h3>
+      <div class="modal-top">
+        <h3>Notes &amp; Comments</h3>
+        <button type="button" id="cancelCommentBtn" class="modal-close-btn">✕</button>
+      </div>
       <div id="commentHistory" class="comment-history"></div>
-      <textarea id="commentInput" rows="4" placeholder="Write a new comment"></textarea>
+      <div class="form-field">
+        <textarea id="commentInput" rows="3" placeholder="Write a comment…"></textarea>
+      </div>
       <div class="modal-actions">
-        <button type="button" id="cancelCommentBtn" class="btn btn-ghost">Close</button>
-        <button type="button" id="saveCommentBtn" class="btn btn-primary">Save Comment</button>
+        <button type="button" id="saveCommentBtn" class="btn btn-primary btn-full">Save Comment</button>
       </div>
     </div>
   </section>
 
   <div id="toast" class="toast"></div>
+
+  <!-- ─── INLINE ENHANCEMENT SCRIPTS ───────────────────── -->
+  <script>
+    /* == Calendar strip == */
+    function renderCalendar() {
+      const now       = new Date();
+      const MONTHS    = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const DAYS      = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      const monthEl   = document.getElementById('calendarMonth');
+      const daysEl    = document.getElementById('calendarDays');
+      if (!monthEl || !daysEl) return;
+
+      monthEl.textContent = MONTHS[now.getMonth()] + ' ' + now.getFullYear();
+
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay());
+      daysEl.innerHTML = '';
+
+      for (let i = 0; i < 7; i++) {
+        const d     = new Date(weekStart);
+        d.setDate(weekStart.getDate() + i);
+        const today = d.toDateString() === now.toDateString();
+        const el    = document.createElement('div');
+        el.className = 'cal-day' + (today ? ' cal-today' : '');
+        el.innerHTML = `<span class="cal-day-name">${DAYS[i]}</span><span class="cal-day-num">${d.getDate()}</span>`;
+        daysEl.appendChild(el);
+      }
+    }
+
+    /* == Department pill buttons (sync with hidden select) == */
+    function initDeptPills() {
+      const select = document.getElementById('taskDepartment');
+      const wrap   = document.getElementById('deptPills');
+      const form   = document.getElementById('createTaskForm');
+      if (!select || !wrap) return;
+
+      const EMOJI = { 'sales':'💼', 'marketing':'📣', 'operations/management':'⚙️', 'operations':'⚙️', 'management':'🏗️' };
+
+      function buildPills() {
+        wrap.innerHTML = '';
+        const opts = Array.from(select.options).filter(o => o.value);
+        if (!opts.length) return;
+
+        // Ensure the select has a valid value
+        if (!select.value || !opts.find(o => o.value === select.value)) {
+          select.value = opts[0].value;
+        }
+
+        opts.forEach(opt => {
+          const btn   = document.createElement('button');
+          btn.type    = 'button';
+          const emoji = EMOJI[opt.value.toLowerCase()] || '🏢';
+          btn.className   = 'dept-pill' + (select.value === opt.value ? ' active' : '');
+          btn.textContent = emoji + ' ' + opt.text;
+          btn.dataset.val = opt.value;
+          btn.addEventListener('click', () => {
+            select.value = opt.value;
+            select.dispatchEvent(new Event('change'));
+          });
+          wrap.appendChild(btn);
+        });
+      }
+
+      // Sync pill highlights when select changes (pill click, or external change)
+      select.addEventListener('change', () => {
+        wrap.querySelectorAll('.dept-pill').forEach(p =>
+          p.classList.toggle('active', p.dataset.val === select.value)
+        );
+      });
+
+      // Re-build when app.js populates options
+      new MutationObserver(buildPills).observe(select, { childList: true });
+
+      // Re-build after form reset (app.js calls reset() inside resetCreateTaskForm)
+      if (form) form.addEventListener('reset', () => setTimeout(buildPills, 0));
+
+      buildPills();
+    }
+
+    /* == Mobile bottom-nav delegates to sidebar equivalents == */
+    function initMobileNav() {
+      [
+        ['openCreateBtn-m',       'openCreateBtn'],
+        ['openTeamWhatsAppBtn-m', 'openTeamWhatsAppBtn'],
+        ['sendEodBtn-m',          'sendEodBtn'],
+        ['logoutBtn-m',           'logoutBtn'],
+      ].forEach(([mId, dId]) => {
+        const m = document.getElementById(mId);
+        const d = document.getElementById(dId);
+        if (m && d) m.addEventListener('click', () => d.click());
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderCalendar();
+      initDeptPills();
+      initMobileNav();
+    });
+  </script>
 
   <script src="./app.js"></script>
 </body>
