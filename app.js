@@ -433,12 +433,19 @@ async function onCreateTaskSubmit(event) {
 /* ── TASK LIST (grouped checklist) ── */
 function renderSummary() {
   const visible = getFilteredTasks();
-  els.summaryStrip.innerHTML = [
-    { label:"Visible", value: visible.length },
-    { label:"Pending", value: visible.filter(t=>t.status==="Pending").length },
-    { label:"Done", value: visible.filter(t=>t.status==="Done").length },
-    { label:"Cancelled", value: visible.filter(t=>t.status==="Cancelled").length }
-  ].map(c => `<article class="summary-card"><span class="muted">${c.label}</span><strong>${c.value}</strong></article>`).join("");
+  const total = visible.length;
+  const pending = visible.filter(t => t.status === "Pending").length;
+  const done = visible.filter(t => t.status === "Done").length;
+  const cancelled = visible.filter(t => t.status === "Cancelled").length;
+
+  els.summaryStrip.innerHTML = `
+    <div class="summary-pills">
+      <span class="summary-pill">📋 ${total} Total</span>
+      <span class="summary-pill status-pending">⏳ ${pending} Pending</span>
+      <span class="summary-pill status-done">✅ ${done} Done</span>
+      <span class="summary-pill status-cancelled">✕ ${cancelled} Cancelled</span>
+    </div>
+  `;
 }
 
 function renderTasksTable() {
