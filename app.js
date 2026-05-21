@@ -157,6 +157,60 @@ function populateFilterOptions() {
   (state.bootstrap.departments||[]).forEach(d => els.departmentFilter.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`));
 }
 
+function buildFilterPills() {
+  const properties = state.bootstrap.properties || [];
+  const departments = state.bootstrap.departments || [];
+  const statuses = ["", "Pending", "Done", "Cancelled"];
+  const container = document.getElementById("filterPills");
+  if (!container) return;
+
+  function createPill(label, id, options, currentValue, onChange) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "filter-pill-wrap";
+    const select = document.createElement("select");
+    select.className = "filter-select";
+    select.id = id;
+    options.forEach(opt => {
+      const val = typeof opt === "string" ? opt : opt.value;
+      const text = typeof opt === "string" ? opt : opt.text;
+      select.insertAdjacentHTML("beforeend", `<option value="${val}" ${val === currentValue ? "selected" : ""}>${text}</option>`);
+    });
+    select.addEventListener("change", onChange);
+    wrapper.appendChild(select);
+    return wrapper;
+  }
+
+  // Clear previous
+  container.innerHTML = "";
+
+  // Property pill
+  const propPill = createPill("Property", "propertyFilter", properties, els.propertyFilter.value, (e) => {
+    els.propertyFilter.value = e.target.value;
+    renderTasksTable();
+  });
+  propPill.querySelector("select").style.backgroundImage = "none"; // optional
+  container.appendChild(propPill);
+
+  // Department pill
+  const deptPill = createPill("Department", "departmentFilter", departments, els.departmentFilter.value, (e) => {
+    els.departmentFilter.value = e.target.value;
+    renderTasksTable();
+  });
+  container.appendChild(deptPill);
+
+  // Status pill
+  const statusPill = createPill("Status", "statusFilter", [
+    { value: "", text: "● All Status" },
+    { value: "Pending", text: "⏳ Pending" },
+    { value: "Done", text: "✅ Done" },
+    { value: "Cancelled", text: "✕ Cancelled" }
+  ], els.statusFilter.value, (e) => {
+    els.statusFilter.value = e.target.value;
+    renderTasksTable();
+  });
+  container.appendChild(statusPill);
+}
+
 /* ── HELPERS ── */
 function getActiveUsers() {
   return (state.bootstrap?.users||[]).filter(u => u.isActive);
