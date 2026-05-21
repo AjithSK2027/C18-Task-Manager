@@ -1,4 +1,4 @@
-﻿const API_BASE = "https://script.google.com/macros/s/AKfycbz9sCf54W8rjASthCcVDx7nAHbd4_iHB2VoyrPhADEEynN3weugEVU5IECNi0i4LAh_/exec";
+const API_BASE = "https://script.google.com/macros/s/AKfycbz9sCf54W8rjASthCcVDx7nAHbd4_iHB2VoyrPhADEEynN3weugEVU5IECNi0i4LAh_/exec";
 const STATUS_VALUES = ["Pending", "Done", "Cancelled"];
 
 const state = { bootstrap: null, user: null, tasks: [], activeCommentTaskId: null };
@@ -305,6 +305,16 @@ function syncAssigneeOptions() {
   els.taskAssignee.disabled = users.length === 0;
 }
 
+// Builds the property <select> for each task row
+function buildPropertySelect(selected) {
+  const props = state.bootstrap?.properties || [];
+  // Fall back to first property or empty if none configured
+  const def = selected && props.includes(selected) ? selected : (props[0] || "");
+  return `<select class="task-item-property" style="font-size:0.76rem;font-weight:800;color:var(--primary);background:transparent;border:none;padding:0;cursor:pointer;">
+    ${props.map(p => `<option value="${escapeHtml(p)}"${p === def ? " selected" : ""}>${escapeHtml(p)}</option>`).join("")}
+  </select>`;
+}
+
 function onParseDump() {
   const textarea = document.getElementById("dumpTextarea");
   if (!textarea) return;
@@ -314,19 +324,16 @@ function onParseDump() {
   if (!tasks.length) return showToast("No tasks found. Use numbered lines (1 task / 1. task) or bullets (- task).", true);
   if (!els.taskItemsList) return;
 
-  // FIX: clear any existing rows (including the default empty starter row) before rendering
+  // Clear existing rows (including any empty starter row) before rendering
   els.taskItemsList.innerHTML = "";
 
   els.taskItemsList.innerHTML = tasks.map(t => `
     <div class="task-item-row">
       <div class="task-item-top">
-        <span class="task-item-label">${escapeHtml(t.property || "Task")}</span>
+        ${buildPropertySelect(t.property)}
         <button type="button" class="btn btn-ghost task-item-remove">✕</button>
       </div>
       <input type="text" class="task-item-title" value="${escapeHtml(t.title)}" placeholder="Title">
-      <div style="display:flex; gap:8px;">
-        <input type="date" class="task-item-due" value="${escapeHtml(t.dueDate||"")}" style="flex:1;">
-      </div>
     </div>`).join("");
 
   els.taskItemsList.querySelectorAll(".task-item-remove").forEach(btn => {
@@ -348,13 +355,10 @@ function addManualTaskRow(prefill = {}) {
   row.className = "task-item-row";
   row.innerHTML = `
     <div class="task-item-top">
-      <span class="task-item-label">${escapeHtml(prefill.property || "Task")}</span>
+      ${buildPropertySelect(prefill.property || "")}
       <button type="button" class="btn btn-ghost task-item-remove">Remove</button>
     </div>
     <input type="text" class="task-item-title" value="${escapeHtml(prefill.title || "")}" placeholder="Title">
-    <div style="display:flex; gap:8px;">
-      <input type="date" class="task-item-due" value="${escapeHtml(prefill.dueDate || "")}" style="flex:1;">
-    </div>
   `;
   row.querySelector(".task-item-remove").addEventListener("click", () => {
     row.remove();
@@ -461,10 +465,10 @@ async function onCreateTaskSubmit(e) {
   }
 
   const taskItems = rows.map(row => ({
-    title: row.querySelector(".task-item-title")?.value.trim() || "",
-    dueDate: row.querySelector(".task-item-due")?.value.trim() || "",
-    notes: "",
-    property: row.querySelector(".task-item-label")?.textContent.trim() || ""
+    title:    row.querySelector(".task-item-title")?.value.trim() || "",
+    property: row.querySelector(".task-item-property")?.value.trim() || (state.bootstrap?.properties?.[0] || ""),
+    dueDate:  "",   // auto-set to creation date by backend
+    notes:    ""
   })).filter(t => t.title);
 
   if (!taskItems.length) return showToast("Each task needs a title", true);
