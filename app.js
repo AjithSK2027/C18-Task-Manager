@@ -174,9 +174,11 @@ function canCommentOnTask(task) { return canUpdateStatus(task); }
 
 /* ── DUMP TASKS MODAL ── */
 function openCreateTaskModal() {
-  if (!canCreateTasks()) return showToast("Only heads can create tasks", true);
+  if (!canCreateTasks()) {
+    showToast("Only heads can create tasks", true);
+    return;
+  }
 
-  // Set up department / assignee and the textarea
   els.createTaskForm.innerHTML = `
     <div class="form-field">
       <label>Department</label>
@@ -212,27 +214,35 @@ Good earth 🌎
     </div>
   `;
 
-  // Populate department dropdown
+  // 🔁 Re-capture the freshly created elements
+  els.taskDepartment = document.getElementById("taskDepartment");
+  els.taskAssignee = document.getElementById("taskAssignee");
+  els.taskItemsList = document.getElementById("taskItemsList");
+
+  // Populate department options and set default
   const departments = state.bootstrap.departments || [];
-els.taskDepartment.innerHTML = "";
-departments.forEach(d => els.taskDepartment.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`));
+  els.taskDepartment.innerHTML = "";
+  departments.forEach(d => els.taskDepartment.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`));
+  if (departments.length > 0) {
+    els.taskDepartment.value = departments[0];
+  }
 
-// ✅ Set default department so assignees load immediately
-if (departments.length > 0) {
-  els.taskDepartment.value = departments[0];
-}
+  // Now sync assignee list
+  syncAssigneeOptions();
 
-syncAssigneeOptions(); 
+  // Re-initialise the pill buttons (it will attach change listener internally)
   initDeptPills();
 
-  // Bind new buttons
+  // Bind parse, clear, and line-add buttons
   document.getElementById("parseDumpBtn").addEventListener("click", onParseDump);
   document.getElementById("clearDumpBtn").addEventListener("click", () => {
     document.getElementById("dumpPreview").style.display = "none";
     els.taskItemsList.innerHTML = "";
   });
 
+  // Re-attach department change listener (in case pills don't trigger it)
   els.taskDepartment.addEventListener("change", syncAssigneeOptions);
+
   els.createTaskModal.hidden = false;
   els.createTaskModal.style.display = "grid";
 }
