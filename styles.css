@@ -118,6 +118,31 @@ h1, h2, h3, h4 { font-family: var(--font-heading); font-weight: 800; letter-spac
 .summary-card { background: var(--surface-glass); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.4); border-radius: var(--radius-lg); padding:16px; box-shadow: var(--shadow-card); }
 .summary-card strong { font-family: var(--font-heading); font-size:1.8rem; margin-top:8px; }
 
+/* ── SUMMARY PILLS (compact bar) ── */
+.summary-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.summary-pill {
+  background: var(--surface-glass);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.summary-pill.status-pending  { background: rgba(44,94,173,0.12); color: #1a3d6d; }
+.summary-pill.status-done     { background: rgba(46,125,50,0.12); color: #2e7d32; }
+.summary-pill.status-cancelled{ background: rgba(198,40,40,0.1);  color: #b71c1c; }
+
 /* ── FILTER PILLS (new) ── */
 .filter-pill-wrap {
   display: inline-flex;
