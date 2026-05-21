@@ -1,4 +1,4 @@
-﻿const API_BASE = "https://script.google.com/macros/s/AKfycbz9sCf54W8rjASthCcVDx7nAHbd4_iHB2VoyrPhADEEynN3weugEVU5IECNi0i4LAh_/exec";
+const API_BASE = "https://script.google.com/macros/s/AKfycbz9sCf54W8rjASthCcVDx7nAHbd4_iHB2VoyrPhADEEynN3weugEVU5IECNi0i4LAh_/exec";
 const STATUS_VALUES = ["Pending", "Done", "Cancelled"];
 
 const state = {
@@ -15,6 +15,7 @@ window.addEventListener("DOMContentLoaded", () => {
   captureElements();
   bindEvents();
   initializeApp();
+  window.initDeptPills = initDeptPills;
 });
 
 function captureElements() {
@@ -83,7 +84,6 @@ function bindEvents() {
   els.createTaskModal.addEventListener("click", (event) => {
     if (event.target === els.createTaskModal) closeCreateTaskModal();
   });
-
   els.commentModal.addEventListener("click", (event) => {
     if (event.target === els.commentModal) closeCommentModal();
   });
@@ -100,18 +100,17 @@ async function initializeApp() {
   els.commentModal.style.display = "none";
 
   if (!isApiConfigured()) {
-    els.userSelect.innerHTML = '<option value="">Set API_BASE in app.js first</option>';
+    els.userSelect.innerHTML = '<option value="">Set API_BASE first</option>';
     els.userSelect.disabled = true;
     els.pinInput.disabled = true;
     els.loginBtn.disabled = true;
-    els.loginHelp.textContent = "Set API_BASE in app.js to your deployed Google Apps Script /exec URL.";
+    els.loginHelp.textContent = "Set API_BASE in app.js";
     return;
   }
 
   try {
     const response = await apiGet("bootstrap");
     if (!response.success) throw new Error(response.error || "Could not load initial data");
-
     state.bootstrap = response;
     populateLoginUsers();
     populateFilterOptions();
@@ -125,19 +124,15 @@ function isApiConfigured() {
   return API_BASE && API_BASE.startsWith("https://script.google.com/macros/s/") && API_BASE.endsWith("/exec");
 }
 
+/* ── LOGIN / LOGOUT ── */
 async function onLogin() {
   const userId = (els.userSelect.value || "").trim();
   const pin = (els.pinInput.value || "").trim();
-
-  if (!userId) {
-    showToast("Please choose a user", true);
-    return;
-  }
+  if (!userId) { showToast("Please choose a user", true); return; }
 
   try {
     const response = await apiPost("login", { userId, pin });
     if (!response.success) throw new Error(response.error || "Login failed");
-
     state.user = response.user;
     state.tasks = [];
     state.activeCommentTaskId = null;
@@ -169,12 +164,10 @@ function onLogout() {
   state.user = null;
   state.tasks = [];
   state.activeCommentTaskId = null;
-
   els.pinInput.value = "";
   els.statusFilter.value = "";
   els.departmentFilter.value = "";
   els.propertyFilter.value = "";
-
   els.appView.hidden = true;
   els.appView.style.display = "none";
   els.loginView.hidden = false;
@@ -190,11 +183,9 @@ function onLogout() {
 
 async function refreshTasks() {
   if (!state.user) return;
-
   try {
     const response = await apiGet("getTasks", { userId: state.user.id });
     if (!response.success) throw new Error(response.error || "Failed to fetch tasks");
-
     state.tasks = Array.isArray(response.tasks) ? response.tasks : [];
     renderSummary();
     renderTasksTable();
@@ -206,81 +197,55 @@ async function refreshTasks() {
 function populateLoginUsers() {
   const users = getActiveUsers();
   const options = ['<option value="">Select user</option>'];
-
-  users
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .forEach((user) => {
-      const role = toTitleCase(user.role);
-      const dept = user.department || "General";
-      options.push(`<option value="${escapeHtml(user.id)}">${escapeHtml(user.name)} - ${escapeHtml(role)} (${escapeHtml(dept)})</option>`);
-    });
-
+  users.sort((a,b) => a.name.localeCompare(b.name)).forEach(user => {
+    const role = toTitleCase(user.role);
+    const dept = user.department || "General";
+    options.push(`<option value="${escapeHtml(user.id)}">${escapeHtml(user.name)} - ${escapeHtml(role)} (${escapeHtml(dept)})</option>`);
+  });
   els.userSelect.innerHTML = options.join("");
 }
 
 function populateFilterOptions() {
   const properties = state.bootstrap.properties || [];
   const departments = state.bootstrap.departments || [];
-
   els.propertyFilter.innerHTML = '<option value="">All Properties</option>';
-  properties.forEach((propertyName) => {
-    els.propertyFilter.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(propertyName)}">${escapeHtml(propertyName)}</option>`);
-  });
-
+  properties.forEach(p => els.propertyFilter.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`));
   els.departmentFilter.innerHTML = '<option value="">All Departments</option>';
-  departments.forEach((departmentName) => {
-    els.departmentFilter.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(departmentName)}">${escapeHtml(departmentName)}</option>`);
-  });
+  departments.forEach(d => els.departmentFilter.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`));
 }
 
 function populateCreateTaskOptions() {
   const properties = state.bootstrap.properties || [];
   const departments = state.bootstrap.departments || [];
-
   els.taskProperty.innerHTML = "";
-  properties.forEach((propertyName) => {
-    els.taskProperty.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(propertyName)}">${escapeHtml(propertyName)}</option>`);
-  });
-
+  properties.forEach(p => els.taskProperty.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`));
   els.taskDepartment.innerHTML = "";
-  departments.forEach((departmentName) => {
-    els.taskDepartment.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(departmentName)}">${escapeHtml(departmentName)}</option>`);
-  });
-
+  departments.forEach(d => els.taskDepartment.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`));
   syncAssigneeOptions();
-  ensureTaskItemsReady();
+  addTaskItemRow();
 }
 
 function getActiveUsers() {
   const users = state.bootstrap && Array.isArray(state.bootstrap.users) ? state.bootstrap.users : [];
-  return users.filter((user) => Boolean(user.isActive));
+  return users.filter(u => Boolean(u.isActive));
 }
 
 function canCreateTasks() {
-  if (!state.user) return false;
-  return state.user.role === "head" || state.user.role === "admin";
+  return state.user && (state.user.role === "head" || state.user.role === "admin");
 }
-
 function canUpdateStatus(task) {
   if (!state.user || !task) return false;
   if (state.user.role === "admin") return true;
   if (state.user.role === "head") return toKey(state.user.department) === toKey(task.department);
   return state.user.id === task.assignedToUserId;
 }
-
 function canCommentOnTask(task) {
-  if (!state.user || !task) return false;
-  if (state.user.role === "admin") return true;
-  if (state.user.role === "head") return toKey(state.user.department) === toKey(task.department);
-  return state.user.id === task.assignedToUserId;
+  return canUpdateStatus(task);
 }
 
+/* ── CREATE TASK MODAL (original form, fixed freeze) ── */
 function openCreateTaskModal() {
-  if (!canCreateTasks()) {
-    showToast("Only heads can create tasks", true);
-    return;
-  }
-
+  if (!canCreateTasks()) { showToast("Only heads can create tasks", true); return; }
   resetCreateTaskForm();
   els.createTaskModal.hidden = false;
   els.createTaskModal.style.display = "grid";
@@ -299,16 +264,9 @@ function resetCreateTaskForm() {
   addTaskItemRow();
 }
 
-function ensureTaskItemsReady() {
-  if (!els.taskItemsList.children.length) {
-    addTaskItemRow();
-  }
-}
-
 function addTaskItemRow(prefill = {}) {
-  state.taskDraftCounter += 1;
+  state.taskDraftCounter++;
   const itemId = `task-item-${Date.now()}-${state.taskDraftCounter}`;
-
   const row = document.createElement("div");
   row.className = "task-item-row";
   row.dataset.itemId = itemId;
@@ -318,84 +276,57 @@ function addTaskItemRow(prefill = {}) {
       <button type="button" class="btn btn-ghost task-item-remove">Remove</button>
     </div>
     <div class="task-item-grid">
-      <input type="text" class="task-item-title" placeholder="Task title">
-      <input type="date" class="task-item-due" aria-label="Due Date">
-      <textarea class="task-item-notes" rows="3" placeholder="Notes or instructions"></textarea>
+      <input type="text" class="task-item-title" placeholder="Task title" value="${escapeHtml(prefill.title||'')}">
+      <input type="date" class="task-item-due" value="${escapeHtml(prefill.dueDate||'')}">
+      <textarea class="task-item-notes" rows="2" placeholder="Notes">${escapeHtml(prefill.notes||'')}</textarea>
     </div>
   `;
-
-  row.querySelector(".task-item-title").value = prefill.title || "";
-  row.querySelector(".task-item-due").value = prefill.dueDate || "";
-  row.querySelector(".task-item-notes").value = prefill.notes || "";
-
   els.taskItemsList.appendChild(row);
   refreshTaskItemLabels();
 }
 
 function onCreateTaskFormClick(event) {
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) return;
-
-  if (target.classList.contains("task-item-remove")) {
-    const row = target.closest(".task-item-row");
-    if (row) row.remove();
-
-    if (!els.taskItemsList.children.length) {
-      addTaskItemRow();
-    } else {
-      refreshTaskItemLabels();
-    }
-  }
+  if (!event.target.classList.contains("task-item-remove")) return;
+  const row = event.target.closest(".task-item-row");
+  if (row) row.remove();
+  if (!els.taskItemsList.children.length) addTaskItemRow();
+  else refreshTaskItemLabels();
 }
 
 function refreshTaskItemLabels() {
   const rows = Array.from(els.taskItemsList.querySelectorAll(".task-item-row"));
-
-  rows.forEach((row, index) => {
-    const label = row.querySelector(".task-item-label");
-    if (label) label.textContent = `Task ${index + 1}`;
-
-    const removeBtn = row.querySelector(".task-item-remove");
-    if (removeBtn) removeBtn.disabled = rows.length === 1;
+  rows.forEach((row, idx) => {
+    row.querySelector(".task-item-label").textContent = `Task ${idx+1}`;
+    row.querySelector(".task-item-remove").disabled = rows.length === 1;
   });
 }
 
 function syncAssigneeOptions() {
-  const selectedDepartment = (els.taskDepartment.value || "").trim();
-  const users = getActiveUsers().filter((user) => {
-    return user.role === "employee" && toKey(user.department) === toKey(selectedDepartment);
-  });
-
+  const dept = (els.taskDepartment.value || "").trim();
+  const users = getActiveUsers().filter(u => u.role === "employee" && toKey(u.department) === toKey(dept));
   els.taskAssignee.innerHTML = "";
-
   if (!users.length) {
-    els.taskAssignee.innerHTML = '<option value="">No active employee in this department</option>';
+    els.taskAssignee.innerHTML = '<option value="">No employee in department</option>';
     els.taskAssignee.disabled = true;
-    return;
+  } else {
+    els.taskAssignee.disabled = false;
+    users.forEach(u => els.taskAssignee.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(u.id)}">${escapeHtml(u.name)}</option>`));
   }
-
-  els.taskAssignee.disabled = false;
-  users.forEach((user) => {
-    els.taskAssignee.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(user.id)}">${escapeHtml(user.name)}</option>`);
-  });
 }
 
 function readTaskItemsFromForm() {
   const rows = Array.from(els.taskItemsList.querySelectorAll(".task-item-row"));
   const items = [];
-
-  rows.forEach((row) => {
+  rows.forEach(row => {
     const title = (row.querySelector(".task-item-title")?.value || "").trim();
-    const dueDate = (row.querySelector(".task-item-due")?.value || "").trim();
-    const notes = (row.querySelector(".task-item-notes")?.value || "").trim();
-
-    if (!title && !dueDate && !notes) return;
-    if (!title) throw new Error("Each task item needs a title");
-
-    items.push({ title, dueDate, notes });
+    if (!title) throw new Error("Each task needs a title");
+    items.push({
+      title,
+      dueDate: (row.querySelector(".task-item-due")?.value || "").trim(),
+      notes: (row.querySelector(".task-item-notes")?.value || "").trim()
+    });
   });
-
-  if (!items.length) throw new Error("Add at least one task item");
+  if (items.length === 0) throw new Error("Add at least one task");
   return items;
 }
 
@@ -403,14 +334,8 @@ async function onCreateTaskSubmit(event) {
   event.preventDefault();
   if (!state.user) return;
 
-  // Re-enable assignee in case it was disabled
+  // FIX: re-enable assignee in case it was disabled
   els.taskAssignee.disabled = false;
-
-  // Quick check: department must have employees
-  if (els.taskAssignee.options.length === 0 || els.taskAssignee.value === "") {
-    showToast("⚠️ Select an assignee. Make sure the department has active employees.", true);
-    return;
-  }
 
   let taskItems;
   try {
@@ -419,12 +344,13 @@ async function onCreateTaskSubmit(event) {
     showToast(error.message, true);
     return;
   }
+
   const payload = {
     actorUserId: state.user.id,
     property: (els.taskProperty.value || "").trim(),
     department: (els.taskDepartment.value || "").trim(),
     assignedToUserId: (els.taskAssignee.value || "").trim(),
-    tasksJson: JSON.stringify(taskItems),
+    tasksJson: JSON.stringify(taskItems)
   };
 
   if (!payload.assignedToUserId) {
@@ -435,364 +361,224 @@ async function onCreateTaskSubmit(event) {
   try {
     const response = await apiPost("createTaskBatch", payload);
     if (!response.success) throw new Error(response.error || "Could not create tasks");
-
     closeCreateTaskModal();
     await refreshTasks();
-
-    const note = response.notifications || {};
-    const emailCount = Number(note.emailCount || 0);
-    const whatsappCount = Number(note.whatsappCount || 0);
-    const createdCount = Number(response.createdCount || taskItems.length);
-
-    showToast(`Created ${createdCount} task(s). Email: ${emailCount}, WhatsApp: ${whatsappCount}`);
+    showToast(`Created ${response.createdCount || taskItems.length} task(s)`);
   } catch (error) {
     showToast(error.message || "Task creation failed", true);
   }
 }
 
+/* ── TASK LIST (property-grouped checklist) ── */
 function renderSummary() {
   const visible = getFilteredTasks();
-  const pending = visible.filter((task) => task.status === "Pending").length;
-  const done = visible.filter((task) => task.status === "Done").length;
-  const cancelled = visible.filter((task) => task.status === "Cancelled").length;
-
   els.summaryStrip.innerHTML = [
-    renderSummaryCard("Visible Tasks", String(visible.length)),
-    renderSummaryCard("Pending", String(pending)),
-    renderSummaryCard("Done", String(done)),
-    renderSummaryCard("Cancelled", String(cancelled)),
-  ].join("");
-}
-
-function renderSummaryCard(label, value) {
-  return `<article class="summary-card"><span class="muted">${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`;
+    { label:"Visible", value: visible.length },
+    { label:"Pending", value: visible.filter(t=>t.status==="Pending").length },
+    { label:"Done", value: visible.filter(t=>t.status==="Done").length },
+    { label:"Cancelled", value: visible.filter(t=>t.status==="Cancelled").length },
+  ].map(c => `<article class="summary-card"><span class="muted">${c.label}</span><strong>${c.value}</strong></article>`).join("");
 }
 
 function renderTasksTable() {
   const tasks = getFilteredTasks();
-
   if (!tasks.length) {
     els.taskTableWrap.innerHTML = '<div class="empty-state">No tasks match your filters.</div>';
     return;
   }
 
-  const cards = tasks.map((task) => {
-    const comments = Array.isArray(task.comments) ? task.comments : [];
-    const latestComment = comments.length ? comments[comments.length - 1].comment : "";
-    const dueDate = task.dueDate ? formatDate(task.dueDate) : "Not set";
-    const canUpdate = canUpdateStatus(task);
-
-    const statusControl = canUpdate
-      ? renderStatusSelect(task)
-      : `<span class="status-chip ${statusClass(task.status)}">${escapeHtml(task.status || "Pending")}</span>`;
-
-    return `
-      <article class="task-card">
-        <div class="task-card-head">
-          <div class="task-card-title">${escapeHtml(task.title || "")}</div>
-          ${statusControl}
-        </div>
-
-        <div class="task-card-meta">
-          <div class="meta-cell"><span class="meta-label">Property</span><span class="meta-value">${escapeHtml(task.property || "-")}</span></div>
-          <div class="meta-cell"><span class="meta-label">Department</span><span class="meta-value">${escapeHtml(task.department || "-")}</span></div>
-          <div class="meta-cell"><span class="meta-label">Assignee</span><span class="meta-value">${escapeHtml(task.assignedToName || "-")}</span></div>
-          <div class="meta-cell"><span class="meta-label">Due Date</span><span class="meta-value">${escapeHtml(dueDate)}</span></div>
-        </div>
-
-        <div class="task-card-notes">${escapeHtml(task.notes || "No notes")}</div>
-        <div class="task-card-comments">
-          ${comments.length} comment(s)
-          ${latestComment ? `<br>${escapeHtml(shorten(latestComment, 110))}` : ""}
-        </div>
-
-        <div class="card-actions">
-          <button class="btn btn-secondary" data-action="comment" data-task-id="${escapeHtml(task.id)}" ${canCommentOnTask(task) ? "" : "disabled"}>Comments</button>
-        </div>
-      </article>
-    `;
+  const grouped = {};
+  tasks.forEach(task => {
+    const prop = task.property || "Uncategorized";
+    if (!grouped[prop]) grouped[prop] = [];
+    grouped[prop].push(task);
   });
 
-  els.taskTableWrap.innerHTML = `<div class="task-cards-grid">${cards.join("")}</div>`;
-}
+  let html = '<div class="task-list-view">';
+  Object.keys(grouped).forEach(prop => {
+    const groupTasks = grouped[prop];
+    const doneCount = groupTasks.filter(t => t.status === "Done").length;
+    html += `<div class="task-group">
+      <div class="task-group-header">
+        <h3>${escapeHtml(prop)}</h3>
+        <span class="task-group-count">${doneCount}/${groupTasks.length} done</span>
+      </div>
+      <div class="task-rows">`;
 
-function renderStatusSelect(task) {
-  const options = STATUS_VALUES.map((status) => {
-    const selected = status === task.status ? "selected" : "";
-    return `<option value="${status}" ${selected}>${status}</option>`;
-  }).join("");
+    groupTasks.forEach((task, idx) => {
+      const canUpdate = canUpdateStatus(task);
+      const statusControl = canUpdate
+        ? `<select class="status-select" data-action="status" data-task-id="${escapeHtml(task.id)}">
+            ${STATUS_VALUES.map(s => `<option value="${s}" ${s===task.status?"selected":""}>${s}</option>`).join("")}
+          </select>`
+        : `<span class="status-chip ${statusClass(task.status)}">${escapeHtml(task.status)}</span>`;
 
-  return `
-    <select class="status-select" data-action="status" data-task-id="${escapeHtml(task.id)}">
-      ${options}
-    </select>
-  `;
+      html += `<div class="task-row" data-task-id="${task.id}">
+        <span class="task-row-num">${idx+1}</span>
+        <div class="task-row-content">
+          <div class="task-row-title">${escapeHtml(task.title)}</div>
+          <div class="task-row-meta">
+            ${escapeHtml(task.assignedToName||'')} · ${escapeHtml(formatDate(task.dueDate))}
+          </div>
+        </div>
+        ${statusControl}
+        <button class="btn btn-ghost task-row-comment" data-action="comment" data-task-id="${escapeHtml(task.id)}">💬</button>
+      </div>`;
+    });
+    html += '</div></div>';
+  });
+  html += '</div>';
+  els.taskTableWrap.innerHTML = html;
 }
 
 function getFilteredTasks() {
   const property = (els.propertyFilter.value || "").trim();
   const department = (els.departmentFilter.value || "").trim();
   const status = (els.statusFilter.value || "").trim();
-
-  const filtered = state.tasks.filter((task) => {
+  return state.tasks.filter(task => {
     if (property && toKey(task.property) !== toKey(property)) return false;
     if (department && toKey(task.department) !== toKey(department)) return false;
     if (status && toKey(task.status) !== toKey(status)) return false;
     return true;
+  }).sort((a,b) => {
+    const order = { Pending:1, Done:2, Cancelled:3 };
+    return (order[a.status]||99) - (order[b.status]||99) || 
+           (a.dueDate||"").localeCompare(b.dueDate||"") ||
+           (b.createdAt||"").localeCompare(a.createdAt||"");
   });
-
-  filtered.sort((a, b) => {
-    const order = { Pending: 1, Done: 2, Cancelled: 3 };
-    const sA = order[a.status] || 99;
-    const sB = order[b.status] || 99;
-    if (sA !== sB) return sA - sB;
-
-    if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
-    if (a.dueDate) return -1;
-    if (b.dueDate) return 1;
-
-    return (b.createdAt || "").localeCompare(a.createdAt || "");
-  });
-
-  return filtered;
 }
 
+/* ── STATUS & COMMENTS ── */
 async function onTableActionChange(event) {
   const target = event.target;
-  if (!(target instanceof HTMLElement)) return;
-
-  const action = target.getAttribute("data-action");
-  if (action !== "status") return;
-
-  const taskId = target.getAttribute("data-task-id") || "";
+  if (target.getAttribute("data-action") !== "status") return;
+  const taskId = target.getAttribute("data-task-id");
   const status = target.value;
-
   if (!taskId || !STATUS_VALUES.includes(status)) return;
-
   try {
-    const response = await apiPost("updateTaskStatus", {
-      actorUserId: state.user.id,
-      taskId,
-      status,
-    });
-
-    if (!response.success) throw new Error(response.error || "Could not update status");
-
+    const resp = await apiPost("updateTaskStatus", { actorUserId: state.user.id, taskId, status });
+    if (!resp.success) throw new Error(resp.error || "Update failed");
     await refreshTasks();
-    showToast(`Status updated to ${status}`);
-  } catch (error) {
-    showToast(error.message || "Status update failed", true);
-  }
+    showToast(`Status → ${status}`);
+  } catch(e) { showToast(e.message, true); }
 }
 
 function onTableActionClick(event) {
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) return;
-
-  const action = target.getAttribute("data-action");
-  const taskId = target.getAttribute("data-task-id") || "";
-
-  if (action === "comment" && taskId) {
-    openCommentModal(taskId);
-  }
+  const btn = event.target.closest("[data-action='comment']");
+  if (btn) openCommentModal(btn.getAttribute("data-task-id"));
 }
 
 function openCommentModal(taskId) {
-  const task = state.tasks.find((item) => item.id === taskId);
+  const task = state.tasks.find(t => t.id === taskId);
   if (!task) return;
-
   state.activeCommentTaskId = taskId;
   els.commentInput.value = "";
   renderCommentHistory(task);
   els.commentModal.hidden = false;
   els.commentModal.style.display = "grid";
 }
-
 function closeCommentModal() {
   state.activeCommentTaskId = null;
   els.commentModal.hidden = true;
   els.commentModal.style.display = "none";
 }
-
 function renderCommentHistory(task) {
   const comments = Array.isArray(task.comments) ? task.comments : [];
-  const blocks = [];
-
-  if (task.notes) {
-    blocks.push(`
-      <div class="comment-item">
-        <small>Original Task Note</small>
-        <div>${escapeHtml(task.notes)}</div>
-      </div>
-    `);
-  }
-
-  comments.forEach((comment) => {
-    const author = comment.authorName || "Unknown";
-    const when = comment.createdAt ? formatDateTime(comment.createdAt) : "";
-    blocks.push(`
-      <div class="comment-item">
-        <small>${escapeHtml(author)}${when ? ` - ${escapeHtml(when)}` : ""}</small>
-        <div>${escapeHtml(comment.comment || "")}</div>
-      </div>
-    `);
+  let html = task.notes ? `<div class="comment-item"><small>Note</small><div>${escapeHtml(task.notes)}</div></div>` : "";
+  comments.forEach(c => {
+    html += `<div class="comment-item"><small>${escapeHtml(c.authorName||"")} · ${formatDateTime(c.createdAt)}</small><div>${escapeHtml(c.comment)}</div></div>`;
   });
-
-  els.commentHistory.innerHTML = blocks.length ? blocks.join("") : '<p class="muted">No comments yet.</p>';
+  els.commentHistory.innerHTML = html || '<p class="muted">No comments yet.</p>';
 }
-
 async function onSaveComment() {
   const taskId = state.activeCommentTaskId;
   const comment = (els.commentInput.value || "").trim();
-
-  if (!taskId || !comment) {
-    showToast("Comment cannot be empty", true);
-    return;
-  }
-
+  if (!taskId || !comment) { showToast("Comment cannot be empty", true); return; }
   try {
-    const response = await apiPost("addComment", {
-      actorUserId: state.user.id,
-      taskId,
-      comment,
-    });
-
-    if (!response.success) throw new Error(response.error || "Comment could not be saved");
-
+    const resp = await apiPost("addComment", { actorUserId: state.user.id, taskId, comment });
+    if (!resp.success) throw new Error(resp.error || "Save failed");
     await refreshTasks();
-
-    const updatedTask = state.tasks.find((task) => task.id === taskId);
-    if (updatedTask) {
-      renderCommentHistory(updatedTask);
-      els.commentInput.value = "";
-    }
-
+    renderCommentHistory(state.tasks.find(t => t.id === taskId));
+    els.commentInput.value = "";
     showToast("Comment added");
-  } catch (error) {
-    showToast(error.message || "Comment update failed", true);
-  }
+  } catch(e) { showToast(e.message, true); }
 }
 
+/* ── WHATSAPP & EOD ── */
 async function onOpenTeamWhatsApp() {
-  const teamUrl = getTeamWhatsAppUrl();
-  if (!teamUrl) {
-    showToast("Team WhatsApp URL not configured", true);
-    return;
-  }
-
-  window.open(teamUrl, "_blank", "noopener,noreferrer");
+  const url = getTeamWhatsAppUrl();
+  if (url) window.open(url, "_blank", "noopener,noreferrer");
+  else showToast("Team WhatsApp URL not configured", true);
 }
-
 function getTeamWhatsAppUrl() {
   if (!state.bootstrap) return "";
-  const directUrl = (state.bootstrap.teamWhatsAppUrl || "").trim();
-  if (directUrl) return directUrl;
-
-  const groupNumber = digitsOnly(state.bootstrap.whatsappGroupNumber || "");
-  if (!groupNumber) return "";
-
-  const text = encodeURIComponent("C18 team workspace update");
-  return `https://wa.me/${groupNumber}?text=${text}`;
+  const direct = (state.bootstrap.teamWhatsAppUrl || "").trim();
+  if (direct) return direct;
+  const num = digitsOnly(state.bootstrap.whatsappGroupNumber || "");
+  return num ? `https://wa.me/${num}?text=${encodeURIComponent("C18 team workspace")}` : "";
 }
-
 async function onSendEod() {
   if (!state.user) return;
-
   try {
-    const response = await apiPost("sendEodReportNow", { actorUserId: state.user.id });
-    if (!response.success) throw new Error(response.error || "Could not send EOD report");
-
-    const channels = [];
-    if (response.sentWhatsapp) channels.push("whatsapp group");
-    if (response.sentEmail) channels.push("email");
-
-    showToast(`EOD report sent via ${channels.length ? channels.join(" + ") : "configured channels not available"}`);
-  } catch (error) {
-    showToast(error.message || "EOD report failed", true);
-  }
+    const resp = await apiPost("sendEodReportNow", { actorUserId: state.user.id });
+    if (!resp.success) throw new Error(resp.error || "EOD failed");
+    showToast("EOD report sent");
+  } catch(e) { showToast(e.message, true); }
 }
 
-async function apiGet(action, params = {}) {
-  const query = new URLSearchParams({ action, ...params });
-  const response = await fetch(`${API_BASE}?${query.toString()}`);
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return response.json();
+/* ── API HELPERS ── */
+async function apiGet(action, params={}) {
+  const q = new URLSearchParams({ action, ...params });
+  const res = await fetch(`${API_BASE}?${q}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 }
-
-async function apiPost(action, payload = {}) {
+async function apiPost(action, payload={}) {
   const params = new URLSearchParams({ action, ...payload });
-  const response = await fetch(API_BASE, {
-    method: "POST",
-    body: params,
-  });
-
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return response.json();
+  const res = await fetch(API_BASE, { method:"POST", body: params });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 }
 
-function showToast(message, isError = false) {
-  els.toast.textContent = message;
-  els.toast.className = `toast show${isError ? " error" : ""}`;
-
+/* ── UTILITIES ── */
+function showToast(msg, error=false) {
+  els.toast.textContent = msg;
+  els.toast.className = `toast show${error?" error":""}`;
   clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(() => {
-    els.toast.className = "toast";
-  }, 3400);
+  showToast.timer = setTimeout(() => els.toast.className = "toast", 3400);
 }
+function formatDate(v) { const d = new Date(v); return isNaN(d) ? v : d.toLocaleDateString("en-IN", {day:"2-digit", month:"short", year:"numeric"}); }
+function formatDateTime(v) { const d = new Date(v); return isNaN(d) ? v : d.toLocaleString("en-IN", {day:"2-digit", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit"}); }
+function statusClass(s) { const k = toKey(s); if(k==="done") return "status-done"; if(k==="cancelled") return "status-cancelled"; return "status-pending"; }
+function toTitleCase(v) { const s = String(v||"").toLowerCase(); return s ? s[0].toUpperCase()+s.slice(1) : ""; }
+function toKey(v) { return String(v||"").trim().toLowerCase(); }
+function digitsOnly(v) { return String(v||"").replace(/\D+/g,""); }
+function escapeHtml(v) { return String(v||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
 
-function formatDate(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
+/* ── DEPARTMENT PILLS (init called from inline script) ── */
+function initDeptPills() {
+  const select = document.getElementById("taskDepartment");
+  const wrap = document.getElementById("deptPills");
+  if (!select || !wrap) return;
+  const EMOJI = { 'sales':'💼', 'marketing':'📣', 'operations/management':'⚙️', 'operations':'⚙️', 'management':'🏗️' };
+  function build() {
+    wrap.innerHTML = '';
+    const opts = Array.from(select.options).filter(o=>o.value);
+    if (!opts.length) return;
+    if (!select.value || !opts.find(o=>o.value===select.value)) select.value = opts[0].value;
+    opts.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'dept-pill' + (select.value===opt.value?' active':'');
+      btn.textContent = (EMOJI[opt.value.toLowerCase()]||'🏢') + ' ' + opt.text;
+      btn.dataset.val = opt.value;
+      btn.addEventListener('click', () => { select.value = opt.value; select.dispatchEvent(new Event('change')); });
+      wrap.appendChild(btn);
+    });
+  }
+  select.addEventListener('change', () => {
+    wrap.querySelectorAll('.dept-pill').forEach(p => p.classList.toggle('active', p.dataset.val === select.value));
   });
-}
-
-function formatDateTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function statusClass(status) {
-  const value = toKey(status);
-  if (value === "done") return "status-done";
-  if (value === "cancelled") return "status-cancelled";
-  return "status-pending";
-}
-
-function toTitleCase(value) {
-  const input = String(value || "").toLowerCase();
-  if (!input) return "";
-  return input.charAt(0).toUpperCase() + input.slice(1);
-}
-
-function toKey(value) {
-  return String(value || "").trim().toLowerCase();
-}
-
-function digitsOnly(value) {
-  return String(value || "").replace(/\D+/g, "");
-}
-
-function shorten(value, maxLength) {
-  if (!value || value.length <= maxLength) return value;
-  return `${value.slice(0, maxLength - 3)}...`;
-}
-
-function escapeHtml(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+  new MutationObserver(build).observe(select, { childList:true });
+  build();
 }
