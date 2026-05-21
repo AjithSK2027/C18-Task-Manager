@@ -82,16 +82,9 @@
       </div>
 
       <!-- Filters -->
-      <section class="filters">
-        <select id="propertyFilter"   class="filter-pill"><option value="">📍 All Properties</option></select>
-        <select id="departmentFilter" class="filter-pill"><option value="">🏢 All Departments</option></select>
-        <select id="statusFilter"     class="filter-pill">
-          <option value="">● All Status</option>
-          <option value="Pending">⏳ Pending</option>
-          <option value="Done">✅ Done</option>
-          <option value="Cancelled">✕ Cancelled</option>
-        </select>
-      </section>
+      <section class="filters" id="filterPills">
+  <!-- Dynamically populated by JS -->
+</section>
 
       <!-- Summary cards -->
       <section id="summaryStrip" class="summary-strip"></section>
