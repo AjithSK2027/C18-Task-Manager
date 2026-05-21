@@ -401,8 +401,16 @@ function readTaskItemsFromForm() {
 
 async function onCreateTaskSubmit(event) {
   event.preventDefault();
-
   if (!state.user) return;
+
+  // Re-enable assignee in case it was disabled
+  els.taskAssignee.disabled = false;
+
+  // Quick check: department must have employees
+  if (els.taskAssignee.options.length === 0 || els.taskAssignee.value === "") {
+    showToast("⚠️ Select an assignee. Make sure the department has active employees.", true);
+    return;
+  }
 
   let taskItems;
   try {
@@ -411,7 +419,6 @@ async function onCreateTaskSubmit(event) {
     showToast(error.message, true);
     return;
   }
-
   const payload = {
     actorUserId: state.user.id,
     property: (els.taskProperty.value || "").trim(),
