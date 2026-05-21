@@ -83,8 +83,18 @@
 
       <!-- Filters -->
       <section class="filters" id="filterPills">
-  <!-- Dynamically populated by JS -->
+  <!-- Dynamically populated pill selects will appear here -->
 </section>
+
+<!-- Hidden original selects (required for JS to work) -->
+<select id="propertyFilter" style="display:none;"></select>
+<select id="departmentFilter" style="display:none;"></select>
+<select id="statusFilter" style="display:none;">
+  <option value="">All Status</option>
+  <option value="Pending">Pending</option>
+  <option value="Done">Done</option>
+  <option value="Cancelled">Cancelled</option>
+</select>
 
       <!-- Summary cards -->
       <section id="summaryStrip" class="summary-strip"></section>
