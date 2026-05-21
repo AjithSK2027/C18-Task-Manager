@@ -118,6 +118,33 @@ h1, h2, h3, h4 { font-family: var(--font-heading); font-weight: 800; letter-spac
 .summary-card { background: var(--surface-glass); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.4); border-radius: var(--radius-lg); padding:16px; box-shadow: var(--shadow-card); }
 .summary-card strong { font-family: var(--font-heading); font-size:1.8rem; margin-top:8px; }
 
+/* ── FILTER PILLS (new) ── */
+.filter-pill-wrap {
+  display: inline-flex;
+  background: var(--surface-glass);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius: var(--radius-md);
+  padding: 2px;
+}
+
+.filter-select {
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 6px 12px;
+  border-radius: 6px;
+  backdrop-filter: none;
+  appearance: none;
+  cursor: pointer;
+}
+.filter-select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--primary-faint);
+}
+
 /* Task checklist */
 .task-list-view { display:flex; flex-direction:column; gap:24px; }
 .task-group { background: var(--surface-glass); backdrop-filter:blur(14px); border:1px solid rgba(255,255,255,0.45); border-radius: var(--radius-lg); padding:16px; box-shadow: var(--shadow-card); }
