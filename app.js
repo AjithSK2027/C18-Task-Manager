@@ -263,13 +263,12 @@ function onLogout() {
 }
 
 // ─── Dump / batch task creation ───────────────────
+// Parse function: now property headings are ignored because we use global property dropdown
 function parseDump(text) {
   const lines = String(text || "").split("\n");
   const tasks = [];
-  let currentProp = "";
   const today = new Date().toISOString().slice(0, 10);
   const isTaskLine = line => /^(\d{1,3}[\.\)]\s+|[-*]\s+)/.test(line);
-  const cleanHeading = line => line.replace(/^\*+|\*+$/g, "").replace(/[^\w\s\-&/]/g, "").trim();
 
   lines.forEach((raw) => {
     const trimmed = raw.trim();
@@ -277,12 +276,8 @@ function parseDump(text) {
 
     if (isTaskLine(trimmed)) {
       const title = trimmed.replace(/^(\d{1,3}[\.\)]\s+|[-*]\s+)/, "").trim();
-      if (title) tasks.push({ title, property: currentProp || "General", dueDate: today, notes: "" });
-      return;
+      if (title) tasks.push({ title, dueDate: today, notes: "" });
     }
-
-    const heading = cleanHeading(trimmed);
-    if (heading) currentProp = heading;
   });
   return tasks;
 }
@@ -297,6 +292,7 @@ function syncAssigneeOptions() {
   els.taskAssignee.disabled = users.length === 0;
 }
 
+// Add a manual task row – no property field, just title and due date
 function addManualTaskRow(prefill = {}) {
   if (!els.taskItemsList) return;
   const wrap = document.getElementById("dumpPreview");
@@ -305,12 +301,9 @@ function addManualTaskRow(prefill = {}) {
   const due = prefill.dueDate || today;
   const row = document.createElement("div");
   row.className = "task-item-row";
-  // Property is now an editable input (text) with a datalist of existing properties
-  const propertyOptions = (state.bootstrap?.properties || []).map(p => `<option value="${escapeHtml(p)}">`).join('');
   row.innerHTML = `
     <div class="task-item-top">
-      <input type="text" class="task-item-property" value="${escapeHtml(prefill.property || "General")}" list="propertyDatalist" placeholder="Property" style="flex:2;">
-      <datalist id="propertyDatalist">${propertyOptions}</datalist>
+      <span class="task-item-label">Task</span>
       <button type="button" class="btn btn-ghost task-item-remove">✕</button>
     </div>
     <input type="text" class="task-item-title" value="${escapeHtml(prefill.title || "")}" placeholder="Title">
@@ -334,30 +327,11 @@ function onParseDump() {
   const raw = textarea.value.trim();
   if (!raw) return showToast("Paste tasks first", true);
   const tasks = parseDump(raw);
-  if (!tasks.length) return showToast("No tasks found", true);
+  if (!tasks.length) return showToast("No tasks found (use numbered or bullet lines)", true);
   if (!els.taskItemsList) return;
 
-  const propertyOptions = (state.bootstrap?.properties || []).map(p => `<option value="${escapeHtml(p)}">`).join('');
-  els.taskItemsList.innerHTML = tasks.map(t => `
-    <div class="task-item-row">
-      <div class="task-item-top">
-        <input type="text" class="task-item-property" value="${escapeHtml(t.property)}" list="propertyDatalist" placeholder="Property" style="flex:2;">
-        <datalist id="propertyDatalist">${propertyOptions}</datalist>
-        <button type="button" class="btn btn-ghost task-item-remove">✕</button>
-      </div>
-      <input type="text" class="task-item-title" value="${escapeHtml(t.title)}" placeholder="Title">
-      <div style="display:flex; gap:8px;">
-        <input type="date" class="task-item-due" value="${escapeHtml(t.dueDate)}" style="flex:1;">
-      </div>
-    </div>`).join("");
-
-  els.taskItemsList.querySelectorAll(".task-item-remove").forEach(btn => {
-    btn.addEventListener("click", () => {
-      btn.closest(".task-item-row").remove();
-      document.getElementById("dumpCount").textContent = els.taskItemsList.children.length;
-      if (!els.taskItemsList.children.length) document.getElementById("dumpPreview").style.display = "none";
-    });
-  });
+  els.taskItemsList.innerHTML = "";
+  tasks.forEach(t => addManualTaskRow(t));
   document.getElementById("dumpPreview").style.display = "block";
   document.getElementById("dumpCount").textContent = tasks.length;
 }
@@ -368,7 +342,18 @@ function openCreateTaskModal() {
     if (!els.createTaskForm || !els.createTaskModal) return showToast("Create task modal not found", true);
     if (!state.bootstrap) return showToast("App data not loaded. Please refresh.", true);
 
+    // Build property dropdown options from bootstrap.properties
+    const propertyOptions = (state.bootstrap.properties || []).map(p => `<option value="${escapeHtml(p)}">${p}</option>`).join('');
+
     els.createTaskForm.innerHTML = `
+    <div class="form-field">
+      <label for="taskProperty">Property / Location</label>
+      <select id="taskProperty" required>
+        <option value="">Select property</option>
+        ${propertyOptions}
+      </select>
+      <small class="muted">All tasks will be created under this property.</small>
+    </div>
     <div class="form-field">
       <label>Department</label>
       <div class="dept-pills-wrap" id="deptPills"></div>
@@ -380,8 +365,10 @@ function openCreateTaskModal() {
     </div>
     <div class="form-field">
       <label for="dumpTextarea">Paste / Type Tasks</label>
-      <textarea id="dumpTextarea" rows="8" placeholder="Camp Alpha\n1. Check room readiness\n2. Confirm staff schedule\n\nGood Earth\n- Clean pool\n- Restock towels"></textarea>
-      <div class="dump-hint">Write tasks like a message. Use numbered or bullet lines for tasks; plain lines become property names. You can edit each task's property below.</div>
+      <textarea id="dumpTextarea" rows="8" placeholder="1. Check room readiness
+2. Confirm staff schedule
+3. Clean pool"></textarea>
+      <div class="dump-hint">Write each task on a new line starting with a number or bullet (e.g., "1. Task title" or "- Task title").</div>
     </div>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
       <button type="button" id="parseDumpBtn" class="btn btn-secondary">Parse and Preview</button>
@@ -398,6 +385,7 @@ function openCreateTaskModal() {
       <button type="submit" class="btn btn-primary btn-full btn-lg" id="createSubmitBtn">Create All Tasks</button>
     </div>`;
 
+    els.taskProperty = document.getElementById("taskProperty");
     els.taskDepartment = document.getElementById("taskDepartment");
     els.taskAssignee = document.getElementById("taskAssignee");
     els.taskItemsList = document.getElementById("taskItemsList");
@@ -411,7 +399,7 @@ function openCreateTaskModal() {
     initDeptPills();
 
     document.getElementById("parseDumpBtn").addEventListener("click", onParseDump);
-    document.getElementById("addTaskBtn").addEventListener("click", () => addManualTaskRow({ property: els.taskDepartment.value || "Task" }));
+    document.getElementById("addTaskBtn").addEventListener("click", () => addManualTaskRow());
     document.getElementById("clearDumpBtn").addEventListener("click", () => {
       document.getElementById("dumpPreview").style.display = "none";
       els.taskItemsList.innerHTML = "";
@@ -419,7 +407,7 @@ function openCreateTaskModal() {
       if (countEl) countEl.textContent = "0";
     });
     els.taskDepartment.addEventListener("change", syncAssigneeOptions);
-    addManualTaskRow({ property: els.taskDepartment.value || "Task" });
+    addManualTaskRow(); // add one empty row as starter
 
     els.createTaskModal.hidden = false;
     els.createTaskModal.style.display = "grid";
@@ -439,6 +427,11 @@ function closeCreateTaskModal() {
 async function onCreateTaskSubmit(e) {
   e.preventDefault();
   if (!state.user) return;
+
+  // Validate global property
+  const globalProperty = els.taskProperty?.value.trim();
+  if (!globalProperty) return showToast("Please select a property", true);
+
   const assigneeId = (els.taskAssignee?.value || "").trim();
   if (!assigneeId) return showToast("Select assignee", true);
   
@@ -457,7 +450,7 @@ async function onCreateTaskSubmit(e) {
     title: row.querySelector(".task-item-title")?.value.trim() || "",
     dueDate: row.querySelector(".task-item-due")?.value.trim() || today,
     notes: "",
-    property: row.querySelector(".task-item-property")?.value.trim() || "General"
+    property: globalProperty   // all tasks get the same property
   })).filter(t => t.title);
 
   if (!taskItems.length) return showToast("Each task needs a title", true);
@@ -484,14 +477,15 @@ async function onCreateTaskSubmit(e) {
     await refreshTasks();
     showToast(`Created ${taskItems.length} task(s)`);
 
-    // Build summary for WhatsApp group (include property per task)
+    // Build summary for WhatsApp group (property shown once, then each task)
     const assigneeName = els.taskAssignee.options[els.taskAssignee.selectedIndex]?.text || assigneeId;
     const summaryLines = [
       `📋 *New tasks created*`,
+      `Property: ${globalProperty}`,
       `Department: ${els.taskDepartment.value}`,
       `Assigned to: ${assigneeName}`,
       ``,
-      ...taskItems.map((t, i) => `${i+1}. [${t.property}] ${t.title}${t.dueDate ? ` (Due: ${t.dueDate})` : ""}`)
+      ...taskItems.map((t, i) => `${i+1}. ${t.title}${t.dueDate ? ` (Due: ${t.dueDate})` : ""}`)
     ];
     const summary = summaryLines.join("\n");
     await navigator.clipboard.writeText(summary);
@@ -510,13 +504,14 @@ async function onCreateTaskSubmit(e) {
       showToast(msg || "Create task failed", true);
     } else {
       try {
+        // Fallback: create tasks one by one (slower but works)
         for (const item of taskItems) {
           const one = await apiPost("createTask", {
             actorUserId: state.user.id,
             title: item.title,
             dueDate: item.dueDate || "",
             notes: item.notes || "",
-            property: item.property,
+            property: globalProperty,
             department: els.taskDepartment.value,
             assignedToUserId: assigneeId
           });
@@ -529,10 +524,11 @@ async function onCreateTaskSubmit(e) {
         const assigneeName = els.taskAssignee.options[els.taskAssignee.selectedIndex]?.text || assigneeId;
         const summaryLines = [
           `📋 *New tasks created*`,
+          `Property: ${globalProperty}`,
           `Department: ${els.taskDepartment.value}`,
           `Assigned to: ${assigneeName}`,
           ``,
-          ...taskItems.map((t, i) => `${i+1}. [${t.property}] ${t.title}${t.dueDate ? ` (Due: ${t.dueDate})` : ""}`)
+          ...taskItems.map((t, i) => `${i+1}. ${t.title}${t.dueDate ? ` (Due: ${t.dueDate})` : ""}`)
         ];
         const summary = summaryLines.join("\n");
         await navigator.clipboard.writeText(summary);
