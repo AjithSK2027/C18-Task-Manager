@@ -294,6 +294,87 @@
       .mobile-nav-spacer { height:72px; }
       .modal-card { padding:18px; }
     }
+
+    /* Mobile optimizations */
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+  .workspace {
+    padding: 12px;
+  }
+  .task-row {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px;
+  }
+  .task-row-num {
+    width: 24px;
+    height: 24px;
+    font-size: 0.7rem;
+  }
+  .task-row-title {
+    font-size: 0.85rem;
+  }
+  .task-row-meta {
+    font-size: 0.65rem;
+    line-height: 1.3;
+  }
+  .status-select, .status-chip {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+    min-width: 90px;
+  }
+  .task-row-comment {
+    padding: 4px 6px;
+    font-size: 0.9rem;
+  }
+  .btn {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
+  .modal-card {
+    width: 95%;
+    padding: 16px;
+  }
+  .task-item-row input, .task-item-row select {
+    font-size: 0.8rem;
+  }
+  .summary-pill {
+    font-size: 0.7rem;
+    padding: 4px 10px;
+  }
+  .filter-select {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+  }
+  .sidebar {
+    padding: 12px;
+  }
+  .sidebar-brand h2 {
+    font-size: 1.2rem;
+  }
+  .session-meta {
+    font-size: 0.7rem;
+  }
+}
+
+/* Make task rows more compact on desktop too */
+.task-row-meta {
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+.task-row-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.status-select {
+  font-size: 0.75rem;
+  padding: 4px 8px;
+}
   </style>
 </head>
 <body>
