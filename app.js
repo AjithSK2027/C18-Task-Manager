@@ -1,4 +1,4 @@
-const API_BASE = "https://script.google.com/macros/s/AKfycbwzkVVXRWZINkEdiISOffo9xVH1u3Gd7WktvQoWrLFULenMGac6WUj3GDZ90U8swZ1-/exec"; // <-- UPDATE TO YOUR DEPLOYED URL
+const API_BASE = "https://script.google.com/macros/s/AKfycbyQ0bEC3nNEFREcQCFZskycD9CUbkP2fqDnPbXoJk5_paYJLYD-dOqPiRQiY77b23th/exec"; // <-- UPDATE TO YOUR DEPLOYED URL
 const STATUS_VALUES = ["Pending", "Done", "Cancelled"];
 
 const state = { bootstrap: null, user: null, tasks: [], activeCommentTaskId: null };
