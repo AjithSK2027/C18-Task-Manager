@@ -1,4 +1,4 @@
-const API_BASE = "https://script.google.com/macros/s/AKfycbz9sCf54W8rjASthCcVDx7nAHbd4_iHB2VoyrPhADEEynN3weugEVU5IECNi0i4LAh_/exec";
+const API_BASE = "https://script.google.com/macros/s/AKfycbwGdwSz6kMGMUm1ADCcHFcsYwDZ3aQXh99OP8KlyBO6JrBVmsML_NGXt6VBNPuUJBhU/exec";
 const STATUS_VALUES = ["Pending", "Done", "Cancelled"];
 
 const state = { bootstrap: null, user: null, tasks: [], activeCommentTaskId: null };
@@ -305,9 +305,12 @@ function addManualTaskRow(prefill = {}) {
   const due = prefill.dueDate || today;
   const row = document.createElement("div");
   row.className = "task-item-row";
+  // Property is now an editable input (text) with a datalist of existing properties
+  const propertyOptions = (state.bootstrap?.properties || []).map(p => `<option value="${escapeHtml(p)}">`).join('');
   row.innerHTML = `
     <div class="task-item-top">
-      <span class="task-item-label">${escapeHtml(prefill.property || "Task")}</span>
+      <input type="text" class="task-item-property" value="${escapeHtml(prefill.property || "General")}" list="propertyDatalist" placeholder="Property" style="flex:2;">
+      <datalist id="propertyDatalist">${propertyOptions}</datalist>
       <button type="button" class="btn btn-ghost task-item-remove">✕</button>
     </div>
     <input type="text" class="task-item-title" value="${escapeHtml(prefill.title || "")}" placeholder="Title">
@@ -334,15 +337,17 @@ function onParseDump() {
   if (!tasks.length) return showToast("No tasks found", true);
   if (!els.taskItemsList) return;
 
+  const propertyOptions = (state.bootstrap?.properties || []).map(p => `<option value="${escapeHtml(p)}">`).join('');
   els.taskItemsList.innerHTML = tasks.map(t => `
     <div class="task-item-row">
       <div class="task-item-top">
-        <span class="task-item-label">${escapeHtml(t.property || "Task")}</span>
+        <input type="text" class="task-item-property" value="${escapeHtml(t.property)}" list="propertyDatalist" placeholder="Property" style="flex:2;">
+        <datalist id="propertyDatalist">${propertyOptions}</datalist>
         <button type="button" class="btn btn-ghost task-item-remove">✕</button>
       </div>
       <input type="text" class="task-item-title" value="${escapeHtml(t.title)}" placeholder="Title">
       <div style="display:flex; gap:8px;">
-        <input type="date" class="task-item-due" value="${escapeHtml(t.dueDate||"")}" style="flex:1;">
+        <input type="date" class="task-item-due" value="${escapeHtml(t.dueDate)}" style="flex:1;">
       </div>
     </div>`).join("");
 
@@ -365,13 +370,6 @@ function openCreateTaskModal() {
 
     els.createTaskForm.innerHTML = `
     <div class="form-field">
-      <label for="taskProperty">Property / Location</label>
-      <select id="taskProperty" required>
-        ${(state.bootstrap.properties || []).map(p => `<option value="${escapeHtml(p)}">${p}</option>`).join('')}
-      </select>
-      <small class="muted">All tasks in this batch will use this property.</small>
-    </div>
-    <div class="form-field">
       <label>Department</label>
       <div class="dept-pills-wrap" id="deptPills"></div>
       <select id="taskDepartment" class="dept-select-hidden" required></select>
@@ -382,8 +380,8 @@ function openCreateTaskModal() {
     </div>
     <div class="form-field">
       <label for="dumpTextarea">Paste / Type Tasks</label>
-      <textarea id="dumpTextarea" rows="8" placeholder="Sales\n1. Collect balance payment\n2. Follow up with lead list\n\nCamp Alpha\n- Check room readiness\n- Confirm staff schedule"></textarea>
-      <div class="dump-hint">Write tasks like a message. Use numbered or bullet lines for tasks; plain lines become section/property headings (ignored if you pick property above).</div>
+      <textarea id="dumpTextarea" rows="8" placeholder="Camp Alpha\n1. Check room readiness\n2. Confirm staff schedule\n\nGood Earth\n- Clean pool\n- Restock towels"></textarea>
+      <div class="dump-hint">Write tasks like a message. Use numbered or bullet lines for tasks; plain lines become property names. You can edit each task's property below.</div>
     </div>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
       <button type="button" id="parseDumpBtn" class="btn btn-secondary">Parse and Preview</button>
@@ -397,13 +395,13 @@ function openCreateTaskModal() {
       <div id="taskItemsList" class="task-items-list"></div>
     </div>
     <div class="modal-actions">
-      <button type="submit" class="btn btn-primary btn-full btn-lg">Create All Tasks</button>
+      <button type="submit" class="btn btn-primary btn-full btn-lg" id="createSubmitBtn">Create All Tasks</button>
     </div>`;
 
-    els.taskProperty = document.getElementById("taskProperty");
     els.taskDepartment = document.getElementById("taskDepartment");
     els.taskAssignee = document.getElementById("taskAssignee");
     els.taskItemsList = document.getElementById("taskItemsList");
+    els.createSubmitBtn = document.getElementById("createSubmitBtn");
 
     const departments = state.bootstrap.departments || [];
     if (!departments.length) return showToast("No departments configured", true);
@@ -443,8 +441,8 @@ async function onCreateTaskSubmit(e) {
   if (!state.user) return;
   const assigneeId = (els.taskAssignee?.value || "").trim();
   if (!assigneeId) return showToast("Select assignee", true);
+  
   let rows = [...(els.taskItemsList?.querySelectorAll(".task-item-row") || [])];
-
   if (!rows.length) {
     const raw = (document.getElementById("dumpTextarea")?.value || "").trim();
     if (!raw) return showToast("Type or paste tasks first", true);
@@ -454,23 +452,28 @@ async function onCreateTaskSubmit(e) {
     rows = [...(els.taskItemsList?.querySelectorAll(".task-item-row") || [])];
   }
 
-  const globalProperty = els.taskProperty.value;
   const today = new Date().toISOString().slice(0, 10);
   const taskItems = rows.map(row => ({
     title: row.querySelector(".task-item-title")?.value.trim() || "",
     dueDate: row.querySelector(".task-item-due")?.value.trim() || today,
     notes: "",
-    property: globalProperty
+    property: row.querySelector(".task-item-property")?.value.trim() || "General"
   })).filter(t => t.title);
 
   if (!taskItems.length) return showToast("Each task needs a title", true);
+
+  // Disable button and show loading
+  if (els.createSubmitBtn) {
+    els.createSubmitBtn.disabled = true;
+    els.createSubmitBtn.textContent = "Creating...";
+  }
+  showToast(`Creating ${taskItems.length} tasks...`, false);
 
   try {
     const payload = {
       actorUserId: state.user.id,
       department: els.taskDepartment.value,
       assignedToUserId: assigneeId,
-      property: globalProperty,
       tasksJson: JSON.stringify(taskItems)
     };
     const res = await apiPost("createTaskBatch", payload);
@@ -481,15 +484,14 @@ async function onCreateTaskSubmit(e) {
     await refreshTasks();
     showToast(`Created ${taskItems.length} task(s)`);
 
-    // Build summary for WhatsApp group
+    // Build summary for WhatsApp group (include property per task)
     const assigneeName = els.taskAssignee.options[els.taskAssignee.selectedIndex]?.text || assigneeId;
     const summaryLines = [
       `📋 *New tasks created*`,
-      `Property: ${globalProperty}`,
       `Department: ${els.taskDepartment.value}`,
       `Assigned to: ${assigneeName}`,
       ``,
-      ...taskItems.map((t, i) => `${i+1}. ${t.title}${t.dueDate ? ` (Due: ${t.dueDate})` : ""}`)
+      ...taskItems.map((t, i) => `${i+1}. [${t.property}] ${t.title}${t.dueDate ? ` (Due: ${t.dueDate})` : ""}`)
     ];
     const summary = summaryLines.join("\n");
     await navigator.clipboard.writeText(summary);
@@ -504,45 +506,51 @@ async function onCreateTaskSubmit(e) {
   } catch (err) {
     const msg = String(err && err.message ? err.message : err || "");
     const shouldFallback = /invalid action|createTaskBatch|not found/i.test(msg);
-    if (!shouldFallback) return showToast(msg || "Create task failed", true);
-
-    try {
-      for (const item of taskItems) {
-        const one = await apiPost("createTask", {
-          actorUserId: state.user.id,
-          title: item.title,
-          dueDate: item.dueDate || "",
-          notes: item.notes || "",
-          property: globalProperty,
-          department: els.taskDepartment.value,
-          assignedToUserId: assigneeId
-        });
-        if (!one.success) throw new Error(one.error || "Task creation failed");
+    if (!shouldFallback) {
+      showToast(msg || "Create task failed", true);
+    } else {
+      try {
+        for (const item of taskItems) {
+          const one = await apiPost("createTask", {
+            actorUserId: state.user.id,
+            title: item.title,
+            dueDate: item.dueDate || "",
+            notes: item.notes || "",
+            property: item.property,
+            department: els.taskDepartment.value,
+            assignedToUserId: assigneeId
+          });
+          if (!one.success) throw new Error(one.error || "Task creation failed");
+        }
+        closeCreateTaskModal();
+        await refreshTasks();
+        showToast(`Created ${taskItems.length} task(s)`);
+        
+        const assigneeName = els.taskAssignee.options[els.taskAssignee.selectedIndex]?.text || assigneeId;
+        const summaryLines = [
+          `📋 *New tasks created*`,
+          `Department: ${els.taskDepartment.value}`,
+          `Assigned to: ${assigneeName}`,
+          ``,
+          ...taskItems.map((t, i) => `${i+1}. [${t.property}] ${t.title}${t.dueDate ? ` (Due: ${t.dueDate})` : ""}`)
+        ];
+        const summary = summaryLines.join("\n");
+        await navigator.clipboard.writeText(summary);
+        const groupLink = state.bootstrap?.teamWhatsAppUrl;
+        if (groupLink) {
+          const openGroup = confirm("Tasks created! Summary copied.\nOpen WhatsApp group to paste?");
+          if (openGroup) window.open(groupLink, '_blank');
+        } else {
+          showToast("Summary copied! (No group link configured)", false);
+        }
+      } catch (fallbackErr) {
+        showToast(fallbackErr.message || "Create task failed", true);
       }
-      closeCreateTaskModal();
-      await refreshTasks();
-      showToast(`Created ${taskItems.length} task(s)`);
-      
-      const assigneeName = els.taskAssignee.options[els.taskAssignee.selectedIndex]?.text || assigneeId;
-      const summaryLines = [
-        `📋 *New tasks created*`,
-        `Property: ${globalProperty}`,
-        `Department: ${els.taskDepartment.value}`,
-        `Assigned to: ${assigneeName}`,
-        ``,
-        ...taskItems.map((t, i) => `${i+1}. ${t.title}${t.dueDate ? ` (Due: ${t.dueDate})` : ""}`)
-      ];
-      const summary = summaryLines.join("\n");
-      await navigator.clipboard.writeText(summary);
-      const groupLink = state.bootstrap?.teamWhatsAppUrl;
-      if (groupLink) {
-        const openGroup = confirm("Tasks created! Summary copied.\nOpen WhatsApp group to paste?");
-        if (openGroup) window.open(groupLink, '_blank');
-      } else {
-        showToast("Summary copied! (No group link configured)", false);
-      }
-    } catch (fallbackErr) {
-      showToast(fallbackErr.message || "Create task failed", true);
+    }
+  } finally {
+    if (els.createSubmitBtn) {
+      els.createSubmitBtn.disabled = false;
+      els.createSubmitBtn.textContent = "Create All Tasks";
     }
   }
 }
