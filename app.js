@@ -445,7 +445,6 @@ async function onCreateTaskSubmit(e) {
   if (!assigneeId) return showToast("Select assignee", true);
   let rows = [...(els.taskItemsList?.querySelectorAll(".task-item-row") || [])];
 
-  // Auto-parse from message box on submit if user hasn't manually built preview rows
   if (!rows.length) {
     const raw = (document.getElementById("dumpTextarea")?.value || "").trim();
     if (!raw) return showToast("Type or paste tasks first", true);
@@ -477,9 +476,31 @@ async function onCreateTaskSubmit(e) {
     const res = await apiPost("createTaskBatch", payload);
     console.log("Batch response:", res);
     if (!res.success) throw new Error(res.error);
+    
     closeCreateTaskModal();
     await refreshTasks();
     showToast(`Created ${taskItems.length} task(s)`);
+
+    // Build summary for WhatsApp group
+    const assigneeName = els.taskAssignee.options[els.taskAssignee.selectedIndex]?.text || assigneeId;
+    const summaryLines = [
+      `📋 *New tasks created*`,
+      `Property: ${globalProperty}`,
+      `Department: ${els.taskDepartment.value}`,
+      `Assigned to: ${assigneeName}`,
+      ``,
+      ...taskItems.map((t, i) => `${i+1}. ${t.title}${t.dueDate ? ` (Due: ${t.dueDate})` : ""}`)
+    ];
+    const summary = summaryLines.join("\n");
+    await navigator.clipboard.writeText(summary);
+    
+    const groupLink = state.bootstrap?.teamWhatsAppUrl;
+    if (groupLink) {
+      const openGroup = confirm("Tasks created! Summary copied to clipboard.\nOpen WhatsApp group to paste?");
+      if (openGroup) window.open(groupLink, '_blank');
+    } else {
+      showToast("Summary copied! (No group link configured)", false);
+    }
   } catch (err) {
     const msg = String(err && err.message ? err.message : err || "");
     const shouldFallback = /invalid action|createTaskBatch|not found/i.test(msg);
@@ -501,6 +522,25 @@ async function onCreateTaskSubmit(e) {
       closeCreateTaskModal();
       await refreshTasks();
       showToast(`Created ${taskItems.length} task(s)`);
+      
+      const assigneeName = els.taskAssignee.options[els.taskAssignee.selectedIndex]?.text || assigneeId;
+      const summaryLines = [
+        `📋 *New tasks created*`,
+        `Property: ${globalProperty}`,
+        `Department: ${els.taskDepartment.value}`,
+        `Assigned to: ${assigneeName}`,
+        ``,
+        ...taskItems.map((t, i) => `${i+1}. ${t.title}${t.dueDate ? ` (Due: ${t.dueDate})` : ""}`)
+      ];
+      const summary = summaryLines.join("\n");
+      await navigator.clipboard.writeText(summary);
+      const groupLink = state.bootstrap?.teamWhatsAppUrl;
+      if (groupLink) {
+        const openGroup = confirm("Tasks created! Summary copied.\nOpen WhatsApp group to paste?");
+        if (openGroup) window.open(groupLink, '_blank');
+      } else {
+        showToast("Summary copied! (No group link configured)", false);
+      }
     } catch (fallbackErr) {
       showToast(fallbackErr.message || "Create task failed", true);
     }
@@ -580,8 +620,22 @@ async function onSendEod() {
   if (!state.user) return;
   try {
     const res = await apiPost("sendEodReportNow", { actorUserId: state.user.id });
-    showToast(res.success ? "EOD report sent" : res.error, !res.success);
-  } catch (err) { showToast(err.message, true); }
+    if (!res.success) throw new Error(res.error);
+    
+    const reportText = res.report;
+    const groupInviteUrl = state.bootstrap?.teamWhatsAppUrl;
+    
+    if (!groupInviteUrl) {
+      showToast("No WhatsApp group invite URL configured", true);
+      return;
+    }
+    
+    await navigator.clipboard.writeText(reportText);
+    showToast("EOD report copied. Now open WhatsApp group and paste.");
+    window.open(groupInviteUrl, '_blank');
+  } catch (err) {
+    showToast(err.message, true);
+  }
 }
 
 // ─── Department pills & calendar ──────────────────
