@@ -173,8 +173,9 @@ function renderTasksTable() {
         <span class="task-row-num">${idx+1}</span>
         <div class="task-row-content">
           <div class="task-row-title">${escapeHtml(task.title)}</div>
-          <div class="task-row-meta">${escapeHtml(task.assignedToName||"")} · ${formatDate(task.dueDate)}</div>
-        </div>
+          <div class="task-row-meta">
+  ${escapeHtml(task.assignedToName||"")} · ${escapeHtml(task.property||"No property")} · ${escapeHtml(task.department||"No dept")} · ${formatDate(task.dueDate)}
+</div>
         ${ctrl}
         <button class="btn btn-ghost task-row-comment" data-action="comment" data-task-id="${escapeHtml(task.id)}">💬</button>
       </div>`;
