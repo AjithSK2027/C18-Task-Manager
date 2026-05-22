@@ -1,4 +1,4 @@
-const API_BASE = "https://script.google.com/macros/s/AKfycbyQ0bEC3nNEFREcQCFZskycD9CUbkP2fqDnPbXoJk5_paYJLYD-dOqPiRQiY77b23th/exec"; // <-- UPDATE TO YOUR DEPLOYED URL
+const API_BASE = "https://script.google.com/macros/s/AKfycby6AWJNW22TfW1p_uzTrRZF75mhZU5X0xQY6lGWyA-fR1AHcYPvMHXXPSX8ZZt1TiQD/exec"; // <-- UPDATE TO YOUR DEPLOYED URL
 const STATUS_VALUES = ["Pending", "Done", "Cancelled"];
 
 const state = { bootstrap: null, user: null, tasks: [], activeCommentTaskId: null };
@@ -169,13 +169,21 @@ function renderTasksTable() {
             ${STATUS_VALUES.map(s => `<option value="${s}" ${s===task.status?"selected":""}>${s}</option>`).join("")}
           </select>`
         : `<span class="status-chip ${statusClass(task.status)}">${escapeHtml(task.status)}</span>`;
+      
+      // Build meta line: Assignee · Property · Department · Due Date
+      const metaParts = [];
+      if (task.assignedToName) metaParts.push(`👤 ${escapeHtml(task.assignedToName)}`);
+      if (task.property && task.property !== "Uncategorized") metaParts.push(`🏠 ${escapeHtml(task.property)}`);
+      if (task.department) metaParts.push(`📁 ${escapeHtml(task.department)}`);
+      if (task.dueDate) metaParts.push(`📅 ${formatDate(task.dueDate)}`);
+      const metaLine = metaParts.join(' · ');
+      
       html += `<div class="task-row" data-task-id="${task.id}">
         <span class="task-row-num">${idx+1}</span>
         <div class="task-row-content">
           <div class="task-row-title">${escapeHtml(task.title)}</div>
-          <div class="task-row-meta">
-  ${escapeHtml(task.assignedToName||"")} · ${escapeHtml(task.property||"No property")} · ${escapeHtml(task.department||"No dept")} · ${formatDate(task.dueDate)}
-</div>
+          <div class="task-row-meta">${metaLine}</div>
+        </div>
         ${ctrl}
         <button class="btn btn-ghost task-row-comment" data-action="comment" data-task-id="${escapeHtml(task.id)}">💬</button>
       </div>`;
