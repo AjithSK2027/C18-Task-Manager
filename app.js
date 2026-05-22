@@ -1,4 +1,4 @@
-const API_BASE = "https://script.google.com/macros/s/AKfycbzxNCbAJ0kBz3TkxFfn2pfXXB9UlGsURkRsIZdZQsT7qAu3d2GmEbyi9Y7ht70929S4/exec"; // Replace with your actual Apps Script URL after redeploy
+const API_BASE = "https://script.google.com/macros/s/AKfycbwzkVVXRWZINkEdiISOffo9xVH1u3Gd7WktvQoWrLFULenMGac6WUj3GDZ90U8swZ1-/exec"; // <-- UPDATE TO YOUR DEPLOYED URL
 const STATUS_VALUES = ["Pending", "Done", "Cancelled"];
 
 const state = { bootstrap: null, user: null, tasks: [], activeCommentTaskId: null };
@@ -200,7 +200,6 @@ async function refreshTasks() {
 }
 
 async function onLogin() {
-  console.log("onLogin called");
   if (!els.userSelect || !els.pinInput) {
     console.error("Missing login elements");
     return;
@@ -255,7 +254,7 @@ function onLogout() {
   if (els.taskTableWrap) els.taskTableWrap.innerHTML = "";
 }
 
-// ─── Task creation (batch, property dropdown) ─────
+// ─── Task creation (batch with property dropdown) ─
 function parseDump(text) {
   const lines = String(text || "").split("\n");
   const tasks = [];
@@ -339,7 +338,7 @@ function openCreateTaskModal() {
         <option value="">Select property</option>
         ${propertyOptions}
       </select>
-      <small class="muted">All tasks will be created under this property.</small>
+      <small class="muted">All tasks in this batch will use this property.</small>
     </div>
     <div class="form-field">
       <label>Department</label>
@@ -450,7 +449,13 @@ async function onCreateTaskSubmit(e) {
       actorUserId: state.user.id,
       department: els.taskDepartment.value,
       assignedToUserId: assigneeId,
-      tasksJson: JSON.stringify(taskItems)
+      property: globalProperty,   // send property at top level (backend expects it)
+      tasksJson: JSON.stringify(taskItems.map(t => ({
+        title: t.title,
+        dueDate: t.dueDate,
+        notes: t.notes,
+        property: t.property
+      })))
     };
     const res = await apiPost("createTaskBatch", payload);
     if (!res.success) throw new Error(res.error);
@@ -668,8 +673,6 @@ window.addEventListener("DOMContentLoaded", () => {
   els.cancelCommentBtn = document.getElementById("cancelCommentBtn");
   els.saveCommentBtn = document.getElementById("saveCommentBtn");
   els.toast = document.getElementById("toast");
-
-  console.log("Elements captured. appView exists:", !!els.appView);
 
   if (els.loginBtn) els.loginBtn.addEventListener("click", onLogin);
   if (els.logoutBtn) els.logoutBtn.addEventListener("click", onLogout);
