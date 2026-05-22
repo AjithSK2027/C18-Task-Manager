@@ -1,4 +1,4 @@
-const API_BASE = "https://script.google.com/macros/s/AKfycbyLQ9IKzCPA8WUoL5-naacaDpGGCmwhdXQooDCQaJw6EItfNGcVYwLsighfBr1MmwkR/exec"; // <-- UPDATE TO YOUR DEPLOYED URL
+const API_BASE = "https://script.google.com/macros/s/AKfycbw6zTCJQj64fU6xlxIBJ_hwiea97EI93yrfR1nP1iOpyBuHwl4EFjczeFT-_qnqTVYY/exec"; // <-- UPDATE THIS
 const STATUS_VALUES = ["Pending", "Done", "Cancelled"];
 
 const state = { bootstrap: null, user: null, tasks: [], activeCommentTaskId: null };
@@ -54,7 +54,6 @@ function populateLoginUsers() {
     opts += `<option value="${escapeHtml(u.id)}">${escapeHtml(u.name)} - ${toTitleCase(u.role)} (${escapeHtml(u.department||"General")})</option>`;
   });
   els.userSelect.innerHTML = opts;
-  console.log("Users populated:", users.length);
 }
 
 function populateFilterOptions() {
@@ -170,7 +169,6 @@ function renderTasksTable() {
           </select>`
         : `<span class="status-chip ${statusClass(task.status)}">${escapeHtml(task.status)}</span>`;
       
-      // Build meta line: Assignee · Property · Department · Due Date
       const metaParts = [];
       if (task.assignedToName) metaParts.push(`👤 ${escapeHtml(task.assignedToName)}`);
       if (task.property && task.property !== "Uncategorized") metaParts.push(`🏠 ${escapeHtml(task.property)}`);
@@ -204,34 +202,21 @@ async function refreshTasks() {
     renderTasksTable();
   } catch (err) {
     showToast(err.message, true);
-    console.error("refreshTasks failed:", err);
   }
 }
 
 async function onLogin() {
-  if (!els.userSelect || !els.pinInput) {
-    console.error("Missing login elements");
-    return;
-  }
+  if (!els.userSelect || !els.pinInput) return;
   const userId = els.userSelect.value.trim();
   const pin = els.pinInput.value.trim();
-  if (!userId) {
-    showToast("Choose a user", true);
-    return;
-  }
+  if (!userId) { showToast("Choose a user", true); return; }
   try {
     const res = await apiPost("login", { userId, pin });
     if (!res.success) throw new Error(res.error || "Login failed");
-
     state.user = res.user;
     state.tasks = [];
-
     if (els.loginView) { els.loginView.hidden = true; els.loginView.style.display = "none"; }
-    if (els.appView) {
-      els.appView.hidden = false;
-      els.appView.style.display = "grid";
-    }
-
+    if (els.appView) { els.appView.hidden = false; els.appView.style.display = "grid"; }
     if (els.sessionMeta) els.sessionMeta.textContent = `${state.user.name} | ${toTitleCase(state.user.role)} | ${state.user.department || "General"}`;
     if (els.openCreateBtn) els.openCreateBtn.hidden = !canCreateTasks();
     if (els.sendEodBtn) {
@@ -239,12 +224,10 @@ async function onLogin() {
       els.sendEodBtn.disabled = false;
       els.sendEodBtn.textContent = "Send EOD to WhatsApp Group";
     }
-
     await refreshTasks();
     showToast(`Welcome, ${state.user.name}`);
   } catch (err) {
     showToast(err.message, true);
-    console.error("Login error:", err);
   }
 }
 
@@ -263,11 +246,11 @@ function onLogout() {
   if (els.taskTableWrap) els.taskTableWrap.innerHTML = "";
 }
 
-// ─── Task creation (batch with property dropdown) ─
+// ─── Task creation helpers ────────────────────────
 function parseDump(text) {
   const lines = String(text || "").split("\n");
   const tasks = [];
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0,10);
   const isTaskLine = line => /^(\d{1,3}[\.\)]\s+|[-*]\s+)/.test(line);
   for (const raw of lines) {
     const trimmed = raw.trim();
@@ -294,7 +277,7 @@ function addManualTaskRow(prefill = {}) {
   if (!els.taskItemsList) return;
   const wrap = document.getElementById("dumpPreview");
   if (wrap) wrap.style.display = "block";
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0,10);
   const due = prefill.dueDate || today;
   const row = document.createElement("div");
   row.className = "task-item-row";
@@ -337,9 +320,7 @@ function openCreateTaskModal() {
     if (!canCreateTasks()) return showToast("Only heads can create tasks", true);
     if (!els.createTaskForm || !els.createTaskModal) return showToast("Create task modal not found", true);
     if (!state.bootstrap) return showToast("App data not loaded. Please refresh.", true);
-
     const propertyOptions = (state.bootstrap.properties || []).map(p => `<option value="${escapeHtml(p)}">${p}</option>`).join('');
-
     els.createTaskForm.innerHTML = `
     <div class="form-field">
       <label for="taskProperty">Property / Location</label>
@@ -377,20 +358,17 @@ function openCreateTaskModal() {
     <div class="modal-actions">
       <button type="submit" class="btn btn-primary btn-full btn-lg" id="createSubmitBtn">Create All Tasks</button>
     </div>`;
-
     els.taskProperty = document.getElementById("taskProperty");
     els.taskDepartment = document.getElementById("taskDepartment");
     els.taskAssignee = document.getElementById("taskAssignee");
     els.taskItemsList = document.getElementById("taskItemsList");
     els.createSubmitBtn = document.getElementById("createSubmitBtn");
-
     const departments = state.bootstrap.departments || [];
     if (!departments.length) return showToast("No departments configured", true);
     els.taskDepartment.innerHTML = departments.map(d => `<option value="${escapeHtml(d)}">${d}</option>`).join("");
     els.taskDepartment.value = departments[0];
     syncAssigneeOptions();
     initDeptPills();
-
     document.getElementById("parseDumpBtn").addEventListener("click", onParseDump);
     document.getElementById("addTaskBtn").addEventListener("click", () => addManualTaskRow());
     document.getElementById("clearDumpBtn").addEventListener("click", () => {
@@ -401,11 +379,10 @@ function openCreateTaskModal() {
     });
     els.taskDepartment.addEventListener("change", syncAssigneeOptions);
     addManualTaskRow();
-
     els.createTaskModal.hidden = false;
     els.createTaskModal.style.display = "grid";
   } catch (err) {
-    console.error("openCreateTaskModal error:", err);
+    console.error(err);
     showToast("Could not open create task modal", true);
   }
 }
@@ -420,13 +397,10 @@ function closeCreateTaskModal() {
 async function onCreateTaskSubmit(e) {
   e.preventDefault();
   if (!state.user) return;
-
   const globalProperty = els.taskProperty?.value.trim();
   if (!globalProperty) return showToast("Please select a property", true);
-
   const assigneeId = (els.taskAssignee?.value || "").trim();
   if (!assigneeId) return showToast("Select assignee", true);
-
   let rows = [...(els.taskItemsList?.querySelectorAll(".task-item-row") || [])];
   if (!rows.length) {
     const raw = document.getElementById("dumpTextarea")?.value.trim();
@@ -436,42 +410,31 @@ async function onCreateTaskSubmit(e) {
     parsed.forEach(item => addManualTaskRow(item));
     rows = [...(els.taskItemsList?.querySelectorAll(".task-item-row") || [])];
   }
-
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0,10);
   const taskItems = rows.map(row => ({
     title: row.querySelector(".task-item-title")?.value.trim() || "",
     dueDate: row.querySelector(".task-item-due")?.value.trim() || today,
     notes: "",
     property: globalProperty
   })).filter(t => t.title);
-
   if (!taskItems.length) return showToast("Each task needs a title", true);
-
   if (els.createSubmitBtn) {
     els.createSubmitBtn.disabled = true;
     els.createSubmitBtn.textContent = "Creating...";
   }
   showToast(`Creating ${taskItems.length} tasks...`, false);
-
   try {
     const payload = {
       actorUserId: state.user.id,
       department: els.taskDepartment.value,
       assignedToUserId: assigneeId,
-      property: globalProperty,   // send property at top level (backend expects it)
-      tasksJson: JSON.stringify(taskItems.map(t => ({
-        title: t.title,
-        dueDate: t.dueDate,
-        notes: t.notes,
-        property: t.property
-      })))
+      tasksJson: JSON.stringify(taskItems)
     };
     const res = await apiPost("createTaskBatch", payload);
     if (!res.success) throw new Error(res.error);
     closeCreateTaskModal();
     await refreshTasks();
     showToast(`Created ${taskItems.length} task(s)`);
-
     const assigneeName = els.taskAssignee.options[els.taskAssignee.selectedIndex]?.text || assigneeId;
     const summaryLines = [
       `📋 *New tasks created*`,
@@ -484,10 +447,10 @@ async function onCreateTaskSubmit(e) {
     const summary = summaryLines.join("\n");
     await navigator.clipboard.writeText(summary);
     const groupLink = state.bootstrap?.teamWhatsAppUrl;
-    if (groupLink) {
-      if (confirm("Tasks created! Summary copied. Open WhatsApp group to paste?")) window.open(groupLink, '_blank');
+    if (groupLink && confirm("Tasks created! Summary copied. Open WhatsApp group to paste?")) {
+      window.open(groupLink, '_blank');
     } else {
-      showToast("Summary copied! (No group link configured)", false);
+      showToast("Summary copied!", false);
     }
   } catch (err) {
     showToast(err.message || "Create task failed", true);
@@ -575,16 +538,11 @@ async function onSendEod() {
     if (!res.success) throw new Error(res.error);
     const reportText = res.report;
     const groupInviteUrl = state.bootstrap?.teamWhatsAppUrl;
-    if (!groupInviteUrl) {
-      showToast("No WhatsApp group invite URL configured", true);
-      return;
-    }
+    if (!groupInviteUrl) { showToast("No WhatsApp group invite URL configured", true); return; }
     await navigator.clipboard.writeText(reportText);
     showToast("EOD report copied. Now open WhatsApp group and paste.");
     window.open(groupInviteUrl, '_blank');
-  } catch (err) {
-    showToast(err.message, true);
-  }
+  } catch (err) { showToast(err.message, true); }
 }
 
 // ─── Department pills & calendar ──────────────────
@@ -638,10 +596,8 @@ async function initializeApp() {
   if (els.appView) { els.appView.hidden = true; els.appView.style.display = "none"; }
   if (els.createTaskModal) { els.createTaskModal.hidden = true; els.createTaskModal.style.display = "none"; }
   if (els.commentModal) { els.commentModal.hidden = true; els.commentModal.style.display = "none"; }
-
   try {
     const res = await apiGet("bootstrap");
-    console.log("Bootstrap:", res);
     if (!res.success) throw new Error(res.error || "Failed to load data");
     state.bootstrap = res;
     populateLoginUsers();
@@ -650,7 +606,6 @@ async function initializeApp() {
   } catch (err) {
     showToast(err.message, true);
     if (els.loginHelp) els.loginHelp.textContent = "Error: " + err.message;
-    console.error("Bootstrap error:", err);
   }
 }
 
@@ -713,14 +668,10 @@ window.addEventListener("DOMContentLoaded", () => {
   if (mLogout && els.logoutBtn) mLogout.addEventListener("click", () => els.logoutBtn.click());
 
   window.initDeptPills = initDeptPills;
-
   document.addEventListener("click", (event) => {
-    const trigger = event.target && event.target.closest ? event.target.closest("#openCreateBtn, #openCreateBtn-m") : null;
-    if (!trigger) return;
-    event.preventDefault();
-    openCreateTaskModal();
+    const trigger = event.target?.closest("#openCreateBtn, #openCreateBtn-m");
+    if (trigger) { event.preventDefault(); openCreateTaskModal(); }
   });
-
   initializeApp();
   renderCalendar();
 });
