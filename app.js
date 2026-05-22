@@ -222,7 +222,6 @@ async function onLogin() {
     state.tasks = [];
     console.log("User set:", state.user);
 
-    // Switch views
     if (els.loginView) { els.loginView.hidden = true; els.loginView.style.display = "none"; }
     if (els.appView) {
       els.appView.hidden = false;
@@ -245,7 +244,6 @@ async function onLogin() {
   } catch (err) {
     showToast(err.message, true);
     console.error("Login error:", err);
-    // Even if login fails, show app for debugging? No, keep it hidden.
   }
 }
 
@@ -264,18 +262,13 @@ function onLogout() {
   if (els.taskTableWrap) els.taskTableWrap.innerHTML = "";
 }
 
-// ─── Dump task modal (same as before) ─────────────
+// ─── Dump / batch task creation ───────────────────
 function parseDump(text) {
   const lines = String(text || "").split("\n");
   const tasks = [];
   let currentProp = "";
-
-  // Accept ANY of these formats:
-  //   "1 task"   "1. task"   "1) task"   "1: task"   "1- task"
-  //   "- task"   "* task"    "• task"
-  const TASK_RE = /^(\d{1,3}[.\-):]\s+|\d{1,3}\s+|[-*•]\s+)/;
-  const isTaskLine  = line => TASK_RE.test(line);
-  const extractTitle = line => line.replace(TASK_RE, "").trim();
+  const today = new Date().toISOString().slice(0, 10);
+  const isTaskLine = line => /^(\d{1,3}[\.\)]\s+|[-*]\s+)/.test(line);
   const cleanHeading = line => line.replace(/^\*+|\*+$/g, "").replace(/[^\w\s\-&/]/g, "").trim();
 
   lines.forEach((raw) => {
@@ -283,12 +276,11 @@ function parseDump(text) {
     if (!trimmed) return;
 
     if (isTaskLine(trimmed)) {
-      const title = extractTitle(trimmed);
-      if (title) tasks.push({ title, property: currentProp || "General", dueDate: "", notes: "" });
+      const title = trimmed.replace(/^(\d{1,3}[\.\)]\s+|[-*]\s+)/, "").trim();
+      if (title) tasks.push({ title, property: currentProp || "General", dueDate: today, notes: "" });
       return;
     }
 
-    // non-task line → becomes the active section / property heading
     const heading = cleanHeading(trimmed);
     if (heading) currentProp = heading;
   });
@@ -305,14 +297,32 @@ function syncAssigneeOptions() {
   els.taskAssignee.disabled = users.length === 0;
 }
 
-// Builds the property <select> for each task row
-function buildPropertySelect(selected) {
-  const props = state.bootstrap?.properties || [];
-  // Fall back to first property or empty if none configured
-  const def = selected && props.includes(selected) ? selected : (props[0] || "");
-  return `<select class="task-item-property" style="font-size:0.76rem;font-weight:800;color:var(--primary);background:transparent;border:none;padding:0;cursor:pointer;">
-    ${props.map(p => `<option value="${escapeHtml(p)}"${p === def ? " selected" : ""}>${escapeHtml(p)}</option>`).join("")}
-  </select>`;
+function addManualTaskRow(prefill = {}) {
+  if (!els.taskItemsList) return;
+  const wrap = document.getElementById("dumpPreview");
+  if (wrap) wrap.style.display = "block";
+  const today = new Date().toISOString().slice(0, 10);
+  const due = prefill.dueDate || today;
+  const row = document.createElement("div");
+  row.className = "task-item-row";
+  row.innerHTML = `
+    <div class="task-item-top">
+      <span class="task-item-label">${escapeHtml(prefill.property || "Task")}</span>
+      <button type="button" class="btn btn-ghost task-item-remove">✕</button>
+    </div>
+    <input type="text" class="task-item-title" value="${escapeHtml(prefill.title || "")}" placeholder="Title">
+    <div style="display:flex; gap:8px;">
+      <input type="date" class="task-item-due" value="${due}" style="flex:1;">
+    </div>
+  `;
+  row.querySelector(".task-item-remove").addEventListener("click", () => {
+    row.remove();
+    const countEl = document.getElementById("dumpCount");
+    if (countEl) countEl.textContent = els.taskItemsList.children.length;
+  });
+  els.taskItemsList.appendChild(row);
+  const countEl = document.getElementById("dumpCount");
+  if (countEl) countEl.textContent = els.taskItemsList.children.length;
 }
 
 function onParseDump() {
@@ -321,19 +331,19 @@ function onParseDump() {
   const raw = textarea.value.trim();
   if (!raw) return showToast("Paste tasks first", true);
   const tasks = parseDump(raw);
-  if (!tasks.length) return showToast("No tasks found. Use numbered lines (1 task / 1. task) or bullets (- task).", true);
+  if (!tasks.length) return showToast("No tasks found", true);
   if (!els.taskItemsList) return;
-
-  // Clear existing rows (including any empty starter row) before rendering
-  els.taskItemsList.innerHTML = "";
 
   els.taskItemsList.innerHTML = tasks.map(t => `
     <div class="task-item-row">
       <div class="task-item-top">
-        ${buildPropertySelect(t.property)}
+        <span class="task-item-label">${escapeHtml(t.property || "Task")}</span>
         <button type="button" class="btn btn-ghost task-item-remove">✕</button>
       </div>
       <input type="text" class="task-item-title" value="${escapeHtml(t.title)}" placeholder="Title">
+      <div style="display:flex; gap:8px;">
+        <input type="date" class="task-item-due" value="${escapeHtml(t.dueDate||"")}" style="flex:1;">
+      </div>
     </div>`).join("");
 
   els.taskItemsList.querySelectorAll(".task-item-remove").forEach(btn => {
@@ -347,29 +357,6 @@ function onParseDump() {
   document.getElementById("dumpCount").textContent = tasks.length;
 }
 
-function addManualTaskRow(prefill = {}) {
-  if (!els.taskItemsList) return;
-  const wrap = document.getElementById("dumpPreview");
-  if (wrap) wrap.style.display = "block";
-  const row = document.createElement("div");
-  row.className = "task-item-row";
-  row.innerHTML = `
-    <div class="task-item-top">
-      ${buildPropertySelect(prefill.property || "")}
-      <button type="button" class="btn btn-ghost task-item-remove">Remove</button>
-    </div>
-    <input type="text" class="task-item-title" value="${escapeHtml(prefill.title || "")}" placeholder="Title">
-  `;
-  row.querySelector(".task-item-remove").addEventListener("click", () => {
-    row.remove();
-    const countEl = document.getElementById("dumpCount");
-    if (countEl) countEl.textContent = els.taskItemsList.children.length;
-  });
-  els.taskItemsList.appendChild(row);
-  const countEl = document.getElementById("dumpCount");
-  if (countEl) countEl.textContent = els.taskItemsList.children.length;
-}
-
 function openCreateTaskModal() {
   try {
     if (!canCreateTasks()) return showToast("Only heads can create tasks", true);
@@ -377,6 +364,13 @@ function openCreateTaskModal() {
     if (!state.bootstrap) return showToast("App data not loaded. Please refresh.", true);
 
     els.createTaskForm.innerHTML = `
+    <div class="form-field">
+      <label for="taskProperty">Property / Location</label>
+      <select id="taskProperty" required>
+        ${(state.bootstrap.properties || []).map(p => `<option value="${escapeHtml(p)}">${p}</option>`).join('')}
+      </select>
+      <small class="muted">All tasks in this batch will use this property.</small>
+    </div>
     <div class="form-field">
       <label>Department</label>
       <div class="dept-pills-wrap" id="deptPills"></div>
@@ -388,8 +382,8 @@ function openCreateTaskModal() {
     </div>
     <div class="form-field">
       <label for="dumpTextarea">Paste / Type Tasks</label>
-      <textarea id="dumpTextarea" rows="7" placeholder="Sales\n1 Collect balance payment\n2 Follow up with lead list\n\nCamp Alpha\n- Check room readiness\n- Confirm staff schedule"></textarea>
-      <div class="dump-hint">Numbered or bullet lines become tasks. Plain lines become property/section headings.</div>
+      <textarea id="dumpTextarea" rows="8" placeholder="Sales\n1. Collect balance payment\n2. Follow up with lead list\n\nCamp Alpha\n- Check room readiness\n- Confirm staff schedule"></textarea>
+      <div class="dump-hint">Write tasks like a message. Use numbered or bullet lines for tasks; plain lines become section/property headings (ignored if you pick property above).</div>
     </div>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
       <button type="button" id="parseDumpBtn" class="btn btn-secondary">Parse and Preview</button>
@@ -401,8 +395,12 @@ function openCreateTaskModal() {
         <button type="button" class="btn btn-ghost btn-sm" id="clearDumpBtn">Clear</button>
       </div>
       <div id="taskItemsList" class="task-items-list"></div>
+    </div>
+    <div class="modal-actions">
+      <button type="submit" class="btn btn-primary btn-full btn-lg">Create All Tasks</button>
     </div>`;
 
+    els.taskProperty = document.getElementById("taskProperty");
     els.taskDepartment = document.getElementById("taskDepartment");
     els.taskAssignee = document.getElementById("taskAssignee");
     els.taskItemsList = document.getElementById("taskItemsList");
@@ -425,15 +423,8 @@ function openCreateTaskModal() {
     els.taskDepartment.addEventListener("change", syncAssigneeOptions);
     addManualTaskRow({ property: els.taskDepartment.value || "Task" });
 
-    // Inject sticky footer submit button into the drawer
-    const drawerFooter = document.querySelector(".drawer-footer");
-    if (drawerFooter) {
-      drawerFooter.innerHTML = `<button type="submit" form="createTaskForm" class="btn btn-primary btn-full btn-lg">Create All Tasks</button>`;
-    }
-
     els.createTaskModal.hidden = false;
-    // FIX: drawer-overlay uses block, not grid
-    els.createTaskModal.style.display = "block";
+    els.createTaskModal.style.display = "grid";
   } catch (err) {
     console.error("openCreateTaskModal error:", err);
     showToast("Could not open create task modal", true);
@@ -464,11 +455,13 @@ async function onCreateTaskSubmit(e) {
     rows = [...(els.taskItemsList?.querySelectorAll(".task-item-row") || [])];
   }
 
+  const globalProperty = els.taskProperty.value;
+  const today = new Date().toISOString().slice(0, 10);
   const taskItems = rows.map(row => ({
-    title:    row.querySelector(".task-item-title")?.value.trim() || "",
-    property: row.querySelector(".task-item-property")?.value.trim() || (state.bootstrap?.properties?.[0] || ""),
-    dueDate:  "",   // auto-set to creation date by backend
-    notes:    ""
+    title: row.querySelector(".task-item-title")?.value.trim() || "",
+    dueDate: row.querySelector(".task-item-due")?.value.trim() || today,
+    notes: "",
+    property: globalProperty
   })).filter(t => t.title);
 
   if (!taskItems.length) return showToast("Each task needs a title", true);
@@ -478,9 +471,11 @@ async function onCreateTaskSubmit(e) {
       actorUserId: state.user.id,
       department: els.taskDepartment.value,
       assignedToUserId: assigneeId,
+      property: globalProperty,
       tasksJson: JSON.stringify(taskItems)
     };
     const res = await apiPost("createTaskBatch", payload);
+    console.log("Batch response:", res);
     if (!res.success) throw new Error(res.error);
     closeCreateTaskModal();
     await refreshTasks();
@@ -497,7 +492,7 @@ async function onCreateTaskSubmit(e) {
           title: item.title,
           dueDate: item.dueDate || "",
           notes: item.notes || "",
-          property: item.property || "General",
+          property: globalProperty,
           department: els.taskDepartment.value,
           assignedToUserId: assigneeId
         });
@@ -636,7 +631,6 @@ function renderCalendar() {
 
 // ─── Initialisation ───────────────────────────────
 async function initializeApp() {
-  // Show login, hide others
   if (els.loginView) { els.loginView.hidden = false; els.loginView.style.display = "grid"; }
   if (els.appView) { els.appView.hidden = true; els.appView.style.display = "none"; }
   if (els.createTaskModal) { els.createTaskModal.hidden = true; els.createTaskModal.style.display = "none"; }
@@ -659,7 +653,6 @@ async function initializeApp() {
 
 // ─── DOM ready ────────────────────────────────────
 window.addEventListener("DOMContentLoaded", () => {
-  // Capture all elements
   els.loginView = document.getElementById("loginView");
   els.appView = document.getElementById("appView");
   els.userSelect = document.getElementById("userSelect");
@@ -679,7 +672,6 @@ window.addEventListener("DOMContentLoaded", () => {
   els.taskTableWrap = document.getElementById("taskTableWrap");
   els.createTaskModal = document.getElementById("createTaskModal");
   els.createTaskForm = document.getElementById("createTaskForm");
-  // taskDepartment, taskAssignee, taskItemsList re-assigned inside modal
   els.cancelCreateBtn = document.getElementById("cancelCreateBtn");
   els.commentModal = document.getElementById("commentModal");
   els.commentHistory = document.getElementById("commentHistory");
@@ -690,7 +682,6 @@ window.addEventListener("DOMContentLoaded", () => {
 
   console.log("Elements captured. appView exists:", !!els.appView);
 
-  // Bind events (with null checks)
   if (els.loginBtn) els.loginBtn.addEventListener("click", onLogin);
   if (els.logoutBtn) els.logoutBtn.addEventListener("click", onLogout);
   if (els.refreshBtn) els.refreshBtn.addEventListener("click", refreshTasks);
@@ -708,12 +699,9 @@ window.addEventListener("DOMContentLoaded", () => {
   }
   if (els.cancelCommentBtn) els.cancelCommentBtn.addEventListener("click", closeCommentModal);
   if (els.saveCommentBtn) els.saveCommentBtn.addEventListener("click", onSaveComment);
-  if (els.createTaskModal) els.createTaskModal.addEventListener("click", e => {
-    if (!e.target.closest("#drawerPanel")) closeCreateTaskModal();
-  });
+  if (els.createTaskModal) els.createTaskModal.addEventListener("click", e => { if (e.target === els.createTaskModal) closeCreateTaskModal(); });
   if (els.commentModal) els.commentModal.addEventListener("click", e => { if (e.target === els.commentModal) closeCommentModal(); });
 
-  // Mobile nav delegation
   const mCreate = document.getElementById("openCreateBtn-m");
   const mWhatsApp = document.getElementById("openTeamWhatsAppBtn-m");
   const mEod = document.getElementById("sendEodBtn-m");
@@ -725,7 +713,6 @@ window.addEventListener("DOMContentLoaded", () => {
 
   window.initDeptPills = initDeptPills;
 
-  // Delegated fallback so create button is never "dead"
   document.addEventListener("click", (event) => {
     const trigger = event.target && event.target.closest ? event.target.closest("#openCreateBtn, #openCreateBtn-m") : null;
     if (!trigger) return;
